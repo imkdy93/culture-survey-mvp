@@ -1,0 +1,176 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", Arial, sans-serif;
+  background: #f4f6f8;
+  color: #1f2933;
+}
+
+.page-wrap {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.survey-header {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.logo-box {
+  width: 90px;
+  height: 90px;
+  border-radius: 18px;
+  background: #1f4e79;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.client-name {
+  margin: 0 0 6px;
+  color: #4b5563;
+  font-size: 15px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 30px;
+  color: #111827;
+}
+
+.survey-desc {
+  margin: 8px 0 0;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.survey-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+h2 {
+  margin-top: 0;
+}
+
+.help-text {
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.input-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+input[type="text"] {
+  flex: 1;
+  padding: 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  background: #1f4e79;
+  color: #ffffff;
+  padding: 14px 20px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:hover {
+  opacity: 0.92;
+}
+
+button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.hidden {
+  display: none;
+}
+
+.respondent-box {
+  background: #f3f7fb;
+  border: 1px solid #d6e4f0;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.respondent-box p {
+  margin: 6px 0;
+}
+
+.question-card {
+  border-top: 1px solid #e5e7eb;
+  padding: 24px 0;
+}
+
+.question-title {
+  font-weight: 700;
+  margin-bottom: 14px;
+  line-height: 1.6;
+}
+
+.scale-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.scale-option {
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 12px 8px;
+  text-align: center;
+  cursor: pointer;
+  background: #ffffff;
+}
+
+.scale-option input {
+  margin-bottom: 6px;
+}
+
+.scale-option:hover {
+  background: #f9fafb;
+}
+
+.submit-area {
+  margin-top: 28px;
+  text-align: center;
+}
+
+.submit-area button {
+  min-width: 180px;
+}
+
+.message {
+  margin-top: 16px;
+  font-weight: 700;
+}
+
+.message.error {
+  color: #dc2626;
+}
+
+.message.success {
+  color: #047857;
+}
