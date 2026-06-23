@@ -1,1 +1,7 @@
-/*    /index.html   200
+/demo    /index.html   200
+/demo/   /index.html   200
+/demo/*  /index.html   200
+
+/acme    /index.html   200
+/acme/   /index.html   200
+/acme/*  /index.html   200
