@@ -8,7 +8,7 @@ const SUPABASE_URL = "https://dzdpailvjbixupfnxmdh.supabase.co";
 
 // 2) Supabase anon public key
 // 실제 운영 중인 anon key를 여기에 넣으세요.
-const SUPABASE_ANON_KEY = "";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6ZHBhaWx2amJpeHVwZm54bWRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNTA4NDgsImV4cCI6MjA5NzYyNjg0OH0.XYGGFFDhkKtBko4T6_LNvxf6fe6SUxu3quZLJm6A02M";
 
 // Supabase client 생성
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
