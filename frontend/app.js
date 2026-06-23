@@ -26,6 +26,14 @@ let currentProject = null;
 let currentRespondent = null;
 let currentQuestions = [];
 
+const scaleLabels = {
+  1: "전혀 아니다",
+  2: "아니다",
+  3: "보통",
+  4: "그렇다",
+  5: "매우 그렇다",
+};
+
 // 시작 시 고객사/프로젝트 기본 정보 로드
 document.addEventListener("DOMContentLoaded", async () => {
   await loadProjectInfo();
@@ -172,14 +180,6 @@ function renderSurvey() {
     if (question.question_type === "SCALE") {
       const scaleRow = document.createElement("div");
       scaleRow.className = "scale-row";
-
-      const labels = {
-        1: "전혀 아니다",
-        2: "아니다",
-        3: "보통",
-        4: "그렇다",
-        5: "매우 그렇다",
-      };
 
       currentQuestions.forEach((question) => {
         const questionBlock = document.createElement("div");
