@@ -12,9 +12,14 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Supabase client 생성
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// 현재 MVP에서는 demo 프로젝트 고정
-const CLIENT_SLUG = "demo";
-const PROJECT_CODE = "demo_2026_culture";
+// URL 경로에서 고객사 slug 자동 인식
+// 예: /demo/ → demo, /acme/ → acme
+const pathParts = window.location.pathname.split("/").filter(Boolean);
+const CLIENT_SLUG = pathParts[0] || "demo";
+
+// 1차 MVP에서는 demo 프로젝트만 사용
+// 나중에는 CLIENT_SLUG 기준으로 projects 테이블에서 활성 프로젝트를 자동 조회하도록 확장
+const PROJECT_CODE = `${CLIENT_SLUG}_2026_culture`;
 
 let currentCustomer = null;
 let currentProject = null;
