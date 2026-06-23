@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>조직문화 진단 설문 MVP</title>
+
+  <link rel="stylesheet" href="/style.css" />
+
+  <!-- Supabase JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+  <div class="page-wrap">
+    <header class="survey-header">
+      <div class="logo-box" id="logoBox">
+        DEMO
+      </div>
+
+      <div>
+        <p class="client-name" id="clientName">데모회사</p>
+        <h1 id="surveyTitle">2026 조직문화 진단</h1>
+        <p class="survey-desc" id="surveyDescription">
+          본 설문은 조직문화 진단을 위한 데모 설문입니다.
+        </p>
+      </div>
+    </header>
+
+    <main class="survey-card">
+      <section id="tokenSection">
+        <h2>설문 접속 확인</h2>
+        <p class="help-text">
+          테스트용 토큰을 입력하세요. 예: <strong>demo-token-001</strong>
+        </p>
+
+        <div class="input-row">
+          <input
+            type="text"
+            id="tokenInput"
+            placeholder="응답자 토큰 입력"
+            value="demo-token-001"
+          />
+          <button id="loadSurveyBtn">설문 시작</button>
+        </div>
+
+        <p id="tokenMessage" class="message"></p>
+      </section>
+
+      <section id="surveySection" class="hidden">
+        <div class="respondent-box">
+          <p>
+            <strong>응답자 코드:</strong>
+            <span id="respondentKey"></span>
+          </p>
+          <p>
+            <strong>소속:</strong>
+            <span id="respondentOrg"></span>
+          </p>
+        </div>
+
+        <form id="surveyForm">
+          <div id="questionContainer"></div>
+
+          <div class="submit-area">
+            <button type="submit" id="submitBtn">응답 제출</button>
+          </div>
+        </form>
+
+        <p id="submitMessage" class="message"></p>
+      </section>
+
+      <section id="completeSection" class="hidden">
+        <h2>응답이 제출되었습니다.</h2>
+        <p>
+          참여해 주셔서 감사합니다.
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
-/demo    /index.html   200
-/demo/   /index.html   200
-/demo/*  /index.html   200
+/demo        /demo/survey/   301
+/demo/       /demo/survey/   301
+/demo/survey /demo/survey/   301
 
-/acme    /index.html   200
-/acme/   /index.html   200
-/acme/*  /index.html   200
+/acme        /acme/survey/   301
+/acme/       /acme/survey/   301
+/acme/survey /acme/survey/   301
