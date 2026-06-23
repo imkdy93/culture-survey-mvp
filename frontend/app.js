@@ -1,13 +1,14 @@
 // ============================================================
 // culture-survey-mvp
-// 3단계: Supabase 연결 설문 화면
+// Supabase 연결 조직문화 설문 화면
 // ============================================================
 
-// 1) 여기에 본인의 Supabase Project URL 입력
+// 1) Supabase Project URL
 const SUPABASE_URL = "https://dzdpailvjbixupfnxmdh.supabase.co";
 
-// 2) 여기에 본인의 anon public key 입력
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6ZHBhaWx2amJpeHVwZm54bWRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNTA4NDgsImV4cCI6MjA5NzYyNjg0OH0.XYGGFFDhkKtBko4T6_LNvxf6fe6SUxu3quZLJm6A02M";
+// 2) Supabase anon public key
+// 실제 운영 중인 anon key를 여기에 넣으세요.
+const SUPABASE_ANON_KEY = "";
 
 // Supabase client 생성
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -17,9 +18,12 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const pathParts = window.location.pathname.split("/").filter(Boolean);
 const CLIENT_SLUG = pathParts[0] || "demo";
 
-// 1차 MVP에서는 demo 프로젝트만 사용
-// 나중에는 CLIENT_SLUG 기준으로 projects 테이블에서 활성 프로젝트를 자동 조회하도록 확장
+// 고객사 slug 기준 프로젝트 코드 생성
+// 예: demo → demo_2026_culture, acme → acme_2026_culture
 const PROJECT_CODE = `${CLIENT_SLUG}_2026_culture`;
+
+console.log("CLIENT_SLUG:", CLIENT_SLUG);
+console.log("PROJECT_CODE:", PROJECT_CODE);
 
 let currentCustomer = null;
 let currentProject = null;
@@ -29,22 +33,27 @@ let currentQuestions = [];
 const scaleLabels = {
   1: "전혀 아니다",
   2: "아니다",
-  3: "보통",
+  3: "보통이다",
   4: "그렇다",
   5: "매우 그렇다",
 };
 
+// ------------------------------------------------------------
 // 시작 시 고객사/프로젝트 기본 정보 로드
+// ------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", async () => {
   await loadProjectInfo();
 
-  document
-    .getElementById("loadSurveyBtn")
-    .addEventListener("click", handleLoadSurvey);
+  const loadSurveyBtn = document.getElementById("loadSurveyBtn");
+  const surveyForm = document.getElementById("surveyForm");
 
-  document
-    .getElementById("surveyForm")
-    .addEventListener("submit", handleSubmitSurvey);
+  if (loadSurveyBtn) {
+    loadSurveyBtn.addEventListener("click", handleLoadSurvey);
+  }
+
+  if (surveyForm) {
+    surveyForm.addEventListener("submit", handleSubmitSurvey);
+  }
 });
 
 // ------------------------------------------------------------
@@ -58,8 +67,8 @@ async function loadProjectInfo() {
       .eq("client_slug", CLIENT_SLUG)
       .single();
 
-    if (customerError) {
-      throw customerError;
+    if (customerError || !customer) {
+      throw new Error("고객사 정보를 불러오지 못했습니다.");
     }
 
     currentCustomer = customer;
@@ -70,28 +79,38 @@ async function loadProjectInfo() {
       .eq("project_code", PROJECT_CODE)
       .single();
 
-    if (projectError) {
-      throw projectError;
+    if (projectError || !project) {
+      throw new Error("프로젝트 정보를 불러오지 못했습니다.");
     }
 
     currentProject = project;
 
     // 화면 반영
-    document.getElementById("clientName").textContent = customer.client_name;
-    document.getElementById("surveyTitle").textContent = project.survey_title;
+    document.getElementById("clientName").textContent =
+      customer.client_name || CLIENT_SLUG;
+
+    document.getElementById("surveyTitle").textContent =
+      project.survey_title || "조직문화 진단";
+
     document.getElementById("surveyDescription").textContent =
       project.survey_description || "";
 
     const logoBox = document.getElementById("logoBox");
-    logoBox.textContent = customer.client_slug.toUpperCase();
-    logoBox.style.background = customer.primary_color || "#1F4E79";
+    if (logoBox) {
+      logoBox.textContent = customer.client_slug.toUpperCase();
+      logoBox.style.background = customer.primary_color || "#1F4E79";
+    }
 
     document.querySelectorAll("button").forEach((button) => {
       button.style.background = customer.primary_color || "#1F4E79";
     });
   } catch (error) {
     console.error(error);
-    showMessage("tokenMessage", "프로젝트 정보를 불러오지 못했습니다.", true);
+    showMessage(
+      "tokenMessage",
+      error.message || "프로젝트 정보를 불러오지 못했습니다.",
+      true
+    );
   }
 }
 
@@ -99,7 +118,8 @@ async function loadProjectInfo() {
 // 설문 시작 버튼
 // ------------------------------------------------------------
 async function handleLoadSurvey() {
-  const token = document.getElementById("tokenInput").value.trim();
+  const tokenInput = document.getElementById("tokenInput");
+  const token = tokenInput.value.trim();
 
   if (!token) {
     showMessage("tokenMessage", "응답자 토큰을 입력하세요.", true);
@@ -142,15 +162,25 @@ async function handleLoadSurvey() {
       throw questionsError;
     }
 
+    if (!questions || questions.length === 0) {
+      throw new Error("등록된 설문 문항이 없습니다.");
+    }
+
     currentQuestions = questions;
 
     renderSurvey();
 
     document.getElementById("tokenSection").classList.add("hidden");
     document.getElementById("surveySection").classList.remove("hidden");
+
+    showMessage("tokenMessage", "", false);
   } catch (error) {
     console.error(error);
-    showMessage("tokenMessage", error.message || "설문을 불러오지 못했습니다.", true);
+    showMessage(
+      "tokenMessage",
+      error.message || "설문을 불러오지 못했습니다.",
+      true
+    );
   }
 }
 
@@ -174,41 +204,11 @@ function renderSurvey() {
     const title = document.createElement("div");
     title.className = "question-title";
     title.textContent = `${question.question_code}. ${question.question_text}`;
-
     card.appendChild(title);
 
     if (question.question_type === "SCALE") {
       const scaleRow = document.createElement("div");
       scaleRow.className = "scale-row";
-
-      currentQuestions.forEach((question) => {
-        const questionBlock = document.createElement("div");
-        questionBlock.className = "question-block";
-
-        questionBlock.innerHTML = `
-          <h3>${question.question_code}. ${question.question_text}</h3>
-          <div class="scale-row">
-            ${[1, 2, 3, 4, 5]
-              .map(
-                (score) => `
-                <label class="scale-option">
-                  <input 
-                    type="radio" 
-                    name="${question.question_code}" 
-                    value="${score}" 
-                    required
-                  />
-                  <span class="scale-score">${score}</span>
-                  <span class="scale-label">${scaleLabels[score]}</span>
-                </label>
-              `
-              )
-              .join("")}
-          </div>
-        `;
-
-        surveyQuestions.appendChild(questionBlock);
-      });
 
       for (let value = 1; value <= 5; value++) {
         const label = document.createElement("label");
@@ -221,14 +221,25 @@ function renderSurvey() {
             value="${value}"
             required
           />
-          <div>${value}</div>
-          <small>${labels[value]}</small>
+          <div class="scale-score">${value}</div>
+          <small class="scale-label">${scaleLabels[value]}</small>
         `;
 
         scaleRow.appendChild(label);
       }
 
       card.appendChild(scaleRow);
+    } else if (question.question_type === "TEXT") {
+      const textarea = document.createElement("textarea");
+      textarea.name = question.question_code;
+      textarea.rows = 4;
+      textarea.placeholder = "의견을 입력해 주세요.";
+
+      if (question.required_yn) {
+        textarea.required = true;
+      }
+
+      card.appendChild(textarea);
     }
 
     container.appendChild(card);
@@ -248,7 +259,17 @@ async function handleSubmitSurvey(event) {
   try {
     const formData = new FormData(event.target);
 
-    // 1) responses 테이블에 응답 제출 1건 생성
+    // 1) 필수 응답 확인
+    for (const question of currentQuestions) {
+      if (question.required_yn) {
+        const value = formData.get(question.question_code);
+        if (value === null || value === "") {
+          throw new Error(`${question.question_code} 문항에 응답해 주세요.`);
+        }
+      }
+    }
+
+    // 2) responses 테이블에 응답 제출 1건 생성
     const { data: response, error: responseError } = await supabaseClient
       .from("responses")
       .insert({
@@ -269,7 +290,7 @@ async function handleSubmitSurvey(event) {
       throw responseError;
     }
 
-    // 2) response_answers 테이블에 문항별 응답값 저장
+    // 3) response_answers 테이블에 문항별 응답값 저장
     const answerRows = currentQuestions.map((question) => {
       const rawValue = formData.get(question.question_code);
 
@@ -293,7 +314,7 @@ async function handleSubmitSurvey(event) {
       throw answersError;
     }
 
-    // 3) respondents 테이블 제출 완료 처리
+    // 4) respondents 테이블 제출 완료 처리
     const { error: respondentUpdateError } = await supabaseClient
       .from("respondents")
       .update({
@@ -326,6 +347,17 @@ async function handleSubmitSurvey(event) {
 // ------------------------------------------------------------
 function showMessage(elementId, message, isError = false) {
   const element = document.getElementById(elementId);
-  element.textContent = message;
+
+  if (!element) {
+    return;
+  }
+
+  element.textContent = message || "";
+
+  if (!message) {
+    element.className = "message";
+    return;
+  }
+
   element.className = isError ? "message error" : "message success";
 }
