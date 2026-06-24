@@ -105,7 +105,6 @@ button:disabled {
 
 .secondary-btn {
   background: #6B7280 !important;
-  margin-right: 12px;
 }
 
 .secondary-btn:hover {
@@ -165,6 +164,10 @@ button:disabled {
 .submit-area {
   margin-top: 28px;
   text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .submit-area button {
