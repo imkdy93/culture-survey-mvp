@@ -186,3 +186,36 @@ button:disabled {
 .message.success {
   color: #047857;
 }
+
+.page-header-box {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.page-header-box h3 {
+  margin: 0 0 8px 0;
+}
+
+.page-header-box p {
+  margin: 0;
+  color: #4b5563;
+}
+
+.question-card.question-missing {
+  border: 2px solid #dc2626;
+  background: #fff7f7;
+}
+
+.question-error {
+  margin-top: 8px;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hidden {
+  display: none !important;
+}

@@ -4,7 +4,7 @@
 // project_settings + draft_responses 임시저장/이어하기 연동 버전
 // ============================================================
 
-console.log("app.js loaded: project_settings + draft version 2026-06-24-02");
+console.log("app.js loaded: page survey + draft version 2026-06-24-07");
 
 // ============================================================
 // 1. Supabase 연결 설정
@@ -39,7 +39,16 @@ let currentDraftAnswers = {};
 
 let autoSaveTimer = null;
 
-const scaleLabels = {
+let surveyPreset = null;
+let currentPages = [];
+let surveyFlowPages = [];
+let currentPageIndex = 0;
+let currentPage = null;
+let currentPageQuestions = [];
+let questionPageMap = [];
+let questionPageMapByPageCode = {};
+
+let scaleLabels = {
   1: "전혀 아니다",
   2: "아니다",
   3: "보통이다",
@@ -188,6 +197,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     ensureSaveAndExitButton();
+
+    const prevPageBtn = document.getElementById("prevPageBtn");
+    const nextPageBtn = document.getElementById("nextPageBtn");
+
+    if (prevPageBtn) {
+      prevPageBtn.addEventListener("click", handlePrevPage);
+    }
+
+    if (nextPageBtn) {
+      nextPageBtn.addEventListener("click", handleNextPage);
+    }
 
   } catch (error) {
     console.error(error);
@@ -518,26 +538,146 @@ async function loadQuestionsAndRender() {
     throw new Error("프로젝트 정보가 없습니다.");
   }
 
-  const { data: questions, error: questionsError } = await supabaseClient
+  await loadSurveyPreset();
+  await loadSurveyPages();
+  await loadQuestions();
+  await loadQuestionPageMap();
+
+  applyPresetScaleLabels();
+
+  currentPageIndex = 0;
+  renderCurrentPage();
+}
+
+async function loadSurveyPreset() {
+  const { data, error } = await supabaseClient
+    .from("project_survey_presets")
+    .select("*")
+    .eq("project_id", currentProject.id)
+    .eq("is_active", true)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) {
+    console.error("preset 조회 실패:", error);
+    throw new Error("설문 사전 설정을 불러오지 못했습니다.");
+  }
+
+  surveyPreset = data;
+  console.log("[surveyPreset]", surveyPreset);
+}
+
+
+async function loadSurveyPages() {
+  const { data, error } = await supabaseClient
+    .from("survey_pages")
+    .select("*")
+    .eq("project_id", currentProject.id)
+    .eq("is_active", true)
+    .order("page_order", { ascending: true });
+
+  if (error) {
+    console.error("survey_pages 조회 실패:", error);
+    throw new Error("설문 페이지 구성을 불러오지 못했습니다.");
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error("설문 페이지 구성이 없습니다.");
+  }
+
+  currentPages = data;
+
+  // OUTRO는 제출 완료 후 화면이므로 응답 진행 flow에서는 제외
+  surveyFlowPages = currentPages.filter((page) => page.page_type !== "OUTRO");
+
+  console.log("[surveyFlowPages]", surveyFlowPages);
+}
+
+
+async function loadQuestions() {
+  const { data, error } = await supabaseClient
     .from("questions")
     .select("*")
     .eq("project_id", currentProject.id)
     .eq("is_active", true)
     .order("question_order", { ascending: true });
 
-  if (questionsError) {
-    console.error("문항 조회 실패:", questionsError);
-    throw questionsError;
+  if (error) {
+    console.error("문항 조회 실패:", error);
+    throw error;
   }
 
-  if (!questions || questions.length === 0) {
+  if (!data || data.length === 0) {
     throw new Error("등록된 설문 문항이 없습니다.");
   }
 
-  currentQuestions = questions;
+  currentQuestions = data;
+  console.log("[currentQuestions]", currentQuestions);
+}
 
-  renderSurvey();
-  bindDraftAutoSaveEvents();
+
+async function loadQuestionPageMap() {
+  const { data, error } = await supabaseClient
+    .from("question_page_map")
+    .select(`
+      *,
+      survey_pages (
+        page_code,
+        page_type,
+        page_order
+      )
+    `)
+    .eq("project_id", currentProject.id)
+    .eq("is_active", true)
+    .order("page_question_order", { ascending: true });
+
+  if (error) {
+    console.error("question_page_map 조회 실패:", error);
+    throw new Error("문항 페이지 매핑을 불러오지 못했습니다.");
+  }
+
+  questionPageMap = data || [];
+  questionPageMapByPageCode = {};
+
+  questionPageMap.forEach((row) => {
+    const pageCode = row.survey_pages ? row.survey_pages.page_code : null;
+
+    if (!pageCode) {
+      return;
+    }
+
+    if (!questionPageMapByPageCode[pageCode]) {
+      questionPageMapByPageCode[pageCode] = [];
+    }
+
+    questionPageMapByPageCode[pageCode].push(row);
+  });
+
+  console.log("[questionPageMapByPageCode]", questionPageMapByPageCode);
+}
+
+
+function applyPresetScaleLabels() {
+  try {
+    const labels = surveyPreset &&
+      surveyPreset.scale_config &&
+      surveyPreset.scale_config.labels;
+
+    if (!labels) {
+      return;
+    }
+
+    scaleLabels = {};
+
+    Object.keys(labels).forEach((key) => {
+      scaleLabels[Number(key)] = labels[key];
+    });
+
+    console.log("[scaleLabels]", scaleLabels);
+  } catch (error) {
+    console.warn("척도 라벨 적용 실패, 기본값 사용:", error);
+  }
 }
 
 
@@ -545,7 +685,14 @@ async function loadQuestionsAndRender() {
 // 15. 설문 문항 렌더링
 // ============================================================
 
-function renderSurvey() {
+function renderCurrentPage() {
+  currentPage = surveyFlowPages[currentPageIndex];
+
+  if (!currentPage) {
+    console.error("현재 페이지를 찾을 수 없습니다.", currentPageIndex);
+    return;
+  }
+
   const respondentKeyEl = document.getElementById("respondentKey");
   const respondentOrgEl = document.getElementById("respondentOrg");
 
@@ -557,6 +704,65 @@ function renderSurvey() {
     respondentOrgEl.textContent = currentRespondent.org_name || "-";
   }
 
+  clearSubmitMessage();
+
+  if (currentPage.page_type === "INTRO") {
+    renderIntroPage();
+  } else if (currentPage.page_type === "ITEMS") {
+    renderItemsPage();
+  } else if (currentPage.page_type === "BIO") {
+    renderSimpleInfoPage("인구통계 정보", currentPage.page_description || "");
+  } else if (currentPage.page_type === "DEPART") {
+    renderSimpleInfoPage("소속 부서 정보", currentPage.page_description || "");
+  } else if (currentPage.page_type === "REVIEW") {
+    renderSimpleInfoPage("제출 전 확인", currentPage.page_description || "");
+  } else {
+    renderSimpleInfoPage(currentPage.page_title || "설문", currentPage.page_description || "");
+  }
+
+  applyDraftAnswersToForm();
+  bindDraftAutoSaveEvents();
+  updatePageNavButtons();
+}
+
+
+function renderIntroPage() {
+  const container = document.getElementById("questionContainer");
+
+  if (!container) {
+    return;
+  }
+
+  const title =
+    surveyPreset?.page_texts?.intro_title ||
+    currentPage.page_title ||
+    "조직문화 진단 안내";
+
+  const body =
+    surveyPreset?.page_texts?.intro_body ||
+    currentPage.page_description ||
+    "";
+
+  const privacyNotice =
+    surveyPreset?.page_texts?.privacy_notice ||
+    "";
+
+  const draftNotice =
+    surveyPreset?.page_texts?.draft_notice ||
+    "";
+
+  container.innerHTML = `
+    <div class="question-card intro-card">
+      <h2>${escapeHtml(title)}</h2>
+      <p>${escapeHtml(body)}</p>
+      ${privacyNotice ? `<p class="help-text">${escapeHtml(privacyNotice)}</p>` : ""}
+      ${draftNotice ? `<p class="help-text">${escapeHtml(draftNotice)}</p>` : ""}
+    </div>
+  `;
+}
+
+
+function renderItemsPage() {
   const container = document.getElementById("questionContainer");
 
   if (!container) {
@@ -564,22 +770,49 @@ function renderSurvey() {
     return;
   }
 
-  container.innerHTML = "";
+  const pageMappings = questionPageMapByPageCode[currentPage.page_code] || [];
 
-  currentQuestions.forEach((question) => {
+  currentPageQuestions = pageMappings
+    .map((mapping) => currentQuestions.find((q) => q.id === mapping.question_id))
+    .filter(Boolean)
+    .sort((a, b) => a.question_order - b.question_order);
+
+  const instruction =
+    currentPage.page_description ||
+    surveyPreset?.page_texts?.items_instruction ||
+    "각 문항을 읽고 현재 조직에 가장 가까운 응답을 선택해 주세요.";
+
+  container.innerHTML = `
+    <div class="page-header-box">
+      <h3>${escapeHtml(currentPage.page_title || "조직문화 진단 문항")}</h3>
+      <p>${escapeHtml(instruction)}</p>
+    </div>
+  `;
+
+  currentPageQuestions.forEach((question) => {
     const card = document.createElement("div");
     card.className = "question-card";
+    card.dataset.questionCode = question.question_code;
 
     const title = document.createElement("div");
     title.className = "question-title";
     title.textContent = `${question.question_code}. ${question.question_text}`;
     card.appendChild(title);
 
+    const error = document.createElement("div");
+    error.className = "question-error hidden";
+    error.textContent =
+      surveyPreset?.validation_messages?.required_question ||
+      "이 문항에 응답해 주세요.";
+    card.appendChild(error);
+
     if (question.question_type === "SCALE") {
       const scaleRow = document.createElement("div");
       scaleRow.className = "scale-row";
 
-      for (let value = 1; value <= 5; value++) {
+      const scaleMax = Number(question.scale_type || surveyPreset?.scale_points || 5);
+
+      for (let value = 1; value <= scaleMax; value++) {
         const label = document.createElement("label");
         label.className = "scale-option";
 
@@ -591,10 +824,9 @@ function renderSurvey() {
             data-question-id="${question.id}"
             data-question-code="${question.question_code}"
             data-question-type="${question.question_type}"
-            required
           />
           <div class="scale-score">${value}</div>
-          <small class="scale-label">${scaleLabels[value]}</small>
+          <small class="scale-label">${escapeHtml(scaleLabels[value] || "")}</small>
         `;
 
         scaleRow.appendChild(label);
@@ -610,15 +842,42 @@ function renderSurvey() {
       textarea.dataset.questionCode = question.question_code;
       textarea.dataset.questionType = question.question_type;
 
-      if (question.required_yn) {
-        textarea.required = true;
-      }
-
       card.appendChild(textarea);
     }
 
     container.appendChild(card);
   });
+}
+
+
+function renderSimpleInfoPage(title, description) {
+  const container = document.getElementById("questionContainer");
+
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="question-card">
+      <h2>${escapeHtml(title)}</h2>
+      <p>${escapeHtml(description)}</p>
+    </div>
+  `;
+}
+
+
+function clearSubmitMessage() {
+  showMessage("submitMessage", "", false);
+}
+
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 
@@ -646,6 +905,146 @@ function ensureSaveAndExitButton() {
   saveAndExitBtn.addEventListener("click", handleSaveAndExit);
 }
 
+function ensurePageNavButtons() {
+  const submitArea = document.querySelector(".submit-area");
+  const submitBtn = document.getElementById("submitBtn");
+
+  if (!submitArea || !submitBtn) {
+    return;
+  }
+
+  let prevPageBtn = document.getElementById("prevPageBtn");
+  let nextPageBtn = document.getElementById("nextPageBtn");
+
+  if (!prevPageBtn) {
+    prevPageBtn = document.createElement("button");
+    prevPageBtn.type = "button";
+    prevPageBtn.id = "prevPageBtn";
+    prevPageBtn.className = "secondary-btn";
+    prevPageBtn.textContent = "이전";
+    submitArea.insertBefore(prevPageBtn, submitArea.firstChild);
+  }
+
+  if (!nextPageBtn) {
+    nextPageBtn = document.createElement("button");
+    nextPageBtn.type = "button";
+    nextPageBtn.id = "nextPageBtn";
+    nextPageBtn.textContent = "다음";
+    submitArea.insertBefore(nextPageBtn, submitBtn);
+  }
+}
+
+
+function updatePageNavButtons() {
+  ensurePageNavButtons();
+
+  const prevPageBtn = document.getElementById("prevPageBtn");
+  const nextPageBtn = document.getElementById("nextPageBtn");
+  const saveAndExitBtn = document.getElementById("saveAndExitBtn");
+  const submitBtn = document.getElementById("submitBtn");
+
+  const buttonLabels = surveyPreset?.button_labels || {};
+
+  const isFirstPage = currentPageIndex === 0;
+  const isLastFlowPage = currentPageIndex === surveyFlowPages.length - 1;
+  const isIntroPage = currentPage && currentPage.page_type === "INTRO";
+
+  if (prevPageBtn) {
+    prevPageBtn.textContent = buttonLabels.prev || "이전";
+    prevPageBtn.classList.toggle("hidden", isFirstPage);
+  }
+
+  if (nextPageBtn) {
+    nextPageBtn.textContent = isIntroPage
+      ? (buttonLabels.start || "설문 시작")
+      : (buttonLabels.next || "다음");
+
+    nextPageBtn.classList.toggle("hidden", isLastFlowPage);
+  }
+
+  if (saveAndExitBtn) {
+    saveAndExitBtn.textContent = buttonLabels.save_exit || "임시저장 후 종료";
+    saveAndExitBtn.classList.toggle("hidden", isIntroPage);
+  }
+
+  if (submitBtn) {
+    submitBtn.textContent = buttonLabels.submit || "응답 제출";
+    submitBtn.classList.toggle("hidden", !isLastFlowPage);
+  }
+}
+
+async function handleNextPage() {
+  try {
+    if (!currentPage) {
+      return;
+    }
+
+    if (currentPage.page_type === "ITEMS") {
+      const valid = validateCurrentItemsPage();
+
+      if (!valid) {
+        return;
+      }
+
+      await saveCurrentPageVisibleAnswers();
+      await updateDraftPageState({
+        currentPageCode: currentPage.page_code,
+        currentPageOrder: currentPage.page_order,
+        lastCompletedPageOrder: currentPage.page_order,
+      });
+    }
+
+    if (currentPageIndex < surveyFlowPages.length - 1) {
+      currentPageIndex++;
+      currentPage = surveyFlowPages[currentPageIndex];
+
+      await updateDraftPageState({
+        currentPageCode: currentPage.page_code,
+        currentPageOrder: currentPage.page_order,
+      });
+
+      renderCurrentPage();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  } catch (error) {
+    console.error(error);
+    showMessage(
+      "submitMessage",
+      error.message || "다음 페이지로 이동하지 못했습니다.",
+      true
+    );
+  }
+}
+
+
+async function handlePrevPage() {
+  try {
+    if (currentPage && currentPage.page_type === "ITEMS") {
+      await saveCurrentPageVisibleAnswers();
+    }
+
+    if (currentPageIndex > 0) {
+      currentPageIndex--;
+      currentPage = surveyFlowPages[currentPageIndex];
+
+      await updateDraftPageState({
+        currentPageCode: currentPage.page_code,
+        currentPageOrder: currentPage.page_order,
+      });
+
+      renderCurrentPage();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  } catch (error) {
+    console.error(error);
+    showMessage(
+      "submitMessage",
+      error.message || "이전 페이지로 이동하지 못했습니다.",
+      true
+    );
+  }
+}
+
 
 // ============================================================
 // 16. 설문 섹션 표시
@@ -668,6 +1067,165 @@ function showSurveySection() {
   showMessage("tokenMessage", "", false);
 }
 
+function validateCurrentItemsPage() {
+  if (!currentPage || currentPage.page_type !== "ITEMS") {
+    return true;
+  }
+
+  clearQuestionValidationErrors();
+
+  const missingQuestions = [];
+
+  currentPageQuestions.forEach((question) => {
+    if (!question.required_yn) {
+      return;
+    }
+
+    if (question.question_type === "SCALE") {
+      const checked = document.querySelector(
+        `input[name="${question.question_code}"]:checked`
+      );
+
+      if (!checked) {
+        missingQuestions.push(question);
+      }
+    }
+
+    if (question.question_type === "TEXT") {
+      const textarea = document.querySelector(
+        `textarea[name="${question.question_code}"]`
+      );
+
+      if (!textarea || !textarea.value.trim()) {
+        missingQuestions.push(question);
+      }
+    }
+  });
+
+  if (missingQuestions.length > 0) {
+    const firstMissing = missingQuestions[0];
+
+    markQuestionAsMissing(firstMissing.question_code);
+
+    showMessage(
+      "submitMessage",
+      surveyPreset?.validation_messages?.required_page ||
+        "응답하지 않은 문항이 있습니다.",
+      true
+    );
+
+    scrollToQuestion(firstMissing.question_code);
+
+    return false;
+  }
+
+  return true;
+}
+
+
+function clearQuestionValidationErrors() {
+  document.querySelectorAll(".question-card").forEach((card) => {
+    card.classList.remove("question-missing");
+  });
+
+  document.querySelectorAll(".question-error").forEach((el) => {
+    el.classList.add("hidden");
+  });
+}
+
+
+function markQuestionAsMissing(questionCode) {
+  const card = document.querySelector(
+    `.question-card[data-question-code="${questionCode}"]`
+  );
+
+  if (!card) {
+    return;
+  }
+
+  card.classList.add("question-missing");
+
+  const error = card.querySelector(".question-error");
+
+  if (error) {
+    error.classList.remove("hidden");
+  }
+}
+
+
+function scrollToQuestion(questionCode) {
+  const card = document.querySelector(
+    `.question-card[data-question-code="${questionCode}"]`
+  );
+
+  if (!card) {
+    return;
+  }
+
+  card.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+}
+
+
+async function saveCurrentPageVisibleAnswers() {
+  const inputs = Array.from(
+    document.querySelectorAll(
+      "#questionContainer input[type='radio']:checked, #questionContainer textarea"
+    )
+  );
+
+  for (const input of inputs) {
+    await saveSingleDraftAnswerFromElement(input);
+  }
+
+  await updateDraftResponseSummary();
+}
+
+
+async function updateDraftPageState({
+  currentPageCode = null,
+  currentPageOrder = null,
+  lastCompletedPageOrder = null,
+} = {}) {
+  if (!currentDraftResponse) {
+    return;
+  }
+
+  const payload = {
+    last_saved_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (currentPageCode !== null) {
+    payload.current_page_code = currentPageCode;
+    payload.last_saved_page_code = currentPageCode;
+  }
+
+  if (currentPageOrder !== null) {
+    payload.current_page_order = currentPageOrder;
+  }
+
+  if (lastCompletedPageOrder !== null) {
+    payload.last_completed_page_order = lastCompletedPageOrder;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("draft_responses")
+    .update(payload)
+    .eq("id", currentDraftResponse.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("draft page state 업데이트 실패:", error);
+    return;
+  }
+
+  currentDraftResponse = data;
+}
+
 
 // ============================================================
 // 17. draft 준비
@@ -675,6 +1233,7 @@ function showSurveySection() {
 
 async function prepareDraftAfterSurveyLoad() {
   if (!runtimeSettings || !runtimeSettings.allow_draft_save) {
+    renderCurrentPage();
     return;
   }
 
@@ -692,7 +1251,12 @@ async function prepareDraftAfterSurveyLoad() {
     if (continueDraft) {
       currentDraftResponse = existingDraft;
       await loadDraftAnswers(existingDraft.id);
+
+      setCurrentPageIndexFromDraft(existingDraft);
+
+      renderCurrentPage();
       applyDraftAnswersToForm();
+
       showDraftStatus("이전에 저장된 응답을 불러왔습니다.");
       return;
     }
@@ -700,9 +1264,29 @@ async function prepareDraftAfterSurveyLoad() {
     await resetDraft(existingDraft.id);
   }
 
+  currentPageIndex = 0;
+  currentPage = surveyFlowPages[currentPageIndex];
+
   currentDraftResponse = await createDraftResponse();
   currentDraftAnswers = {};
+
+  renderCurrentPage();
+
   showDraftStatus("임시저장이 시작되었습니다.");
+}
+
+
+function setCurrentPageIndexFromDraft(draft) {
+  if (!draft || !draft.current_page_code) {
+    currentPageIndex = 0;
+    return;
+  }
+
+  const foundIndex = surveyFlowPages.findIndex(
+    (page) => page.page_code === draft.current_page_code
+  );
+
+  currentPageIndex = foundIndex >= 0 ? foundIndex : 0;
 }
 
 
@@ -751,6 +1335,10 @@ async function createDraftResponse() {
       draft_status: "IN_PROGRESS",
       answered_count: 0,
       total_question_count: currentQuestions.length,
+      current_page_code: currentPage ? currentPage.page_code : null,
+      current_page_order: currentPage ? currentPage.page_order : null,
+      last_completed_page_order: null,
+      last_saved_page_code: currentPage ? currentPage.page_code : null,
       started_at: new Date().toISOString(),
       last_saved_at: new Date().toISOString(),
       user_agent: navigator.userAgent,
@@ -953,6 +1541,17 @@ async function saveSingleDraftAnswerFromElement(element) {
       return;
     }
 
+    currentDraftAnswers[questionCode] = {
+      draft_response_id: currentDraftResponse.id,
+      project_id: currentProject.id,
+      respondent_id: currentRespondent.id,
+      question_id: questionId,
+      question_code: questionCode,
+      answer_value: answerValue,
+      answer_text: answerText,
+      saved_at: new Date().toISOString(),
+    };
+
     await updateDraftResponseSummary();
 
     showDraftStatus("임시저장됨");
@@ -1051,16 +1650,80 @@ async function handleSubmitSurvey(event) {
       throw new Error("응답자 정보가 없습니다.");
     }
 
-    const formData = new FormData(event.target);
+    if (currentPage && currentPage.page_type === "ITEMS") {
+      const valid = validateCurrentItemsPage();
 
-    for (const question of currentQuestions) {
-      if (question.required_yn) {
-        const value = formData.get(question.question_code);
+      if (!valid) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = surveyPreset?.button_labels?.submit || "응답 제출";
+        }
+        return;
+      }
 
-        if (value === null || value === "") {
-          throw new Error(`${question.question_code} 문항에 응답해 주세요.`);
+      await saveCurrentPageVisibleAnswers();
+    }
+
+    if (currentDraftResponse) {
+      await loadDraftAnswers(currentDraftResponse.id);
+    }
+
+    const missingRequired = [];
+
+    currentQuestions.forEach((question) => {
+      if (!question.required_yn) {
+        return;
+      }
+
+      const answer = currentDraftAnswers[question.question_code];
+
+      if (!answer) {
+        missingRequired.push(question);
+        return;
+      }
+
+      if (question.question_type === "SCALE") {
+        if (answer.answer_value === null || answer.answer_value === undefined) {
+          missingRequired.push(question);
         }
       }
+
+      if (question.question_type === "TEXT") {
+        if (!answer.answer_text || !String(answer.answer_text).trim()) {
+          missingRequired.push(question);
+        }
+      }
+    });
+
+    if (missingRequired.length > 0) {
+      const firstMissing = missingRequired[0];
+      moveToQuestionPage(firstMissing.question_code);
+
+      showMessage(
+        "submitMessage",
+        `${firstMissing.question_code} 문항에 응답해 주세요.`,
+        true
+      );
+
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = surveyPreset?.button_labels?.submit || "응답 제출";
+      }
+
+      return;
+    }
+
+    const confirmed = confirm(
+      surveyPreset?.validation_messages?.submit_confirm ||
+        "응답을 최종 제출하시겠습니까?"
+    );
+
+    if (!confirmed) {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = surveyPreset?.button_labels?.submit || "응답 제출";
+      }
+      return;
     }
 
     const responseInsertPayload = {
@@ -1086,7 +1749,7 @@ async function handleSubmitSurvey(event) {
     }
 
     const answerRows = currentQuestions.map((question) => {
-      const rawValue = formData.get(question.question_code);
+      const answer = currentDraftAnswers[question.question_code] || {};
 
       return {
         response_id: response.id,
@@ -1094,9 +1757,13 @@ async function handleSubmitSurvey(event) {
         question_id: question.id,
         question_code: question.question_code,
         answer_value:
-          question.question_type === "SCALE" ? Number(rawValue) : null,
+          question.question_type === "SCALE"
+            ? Number(answer.answer_value)
+            : null,
         answer_text:
-          question.question_type === "TEXT" ? String(rawValue || "") : null,
+          question.question_type === "TEXT"
+            ? String(answer.answer_text || "")
+            : null,
       };
     });
 
@@ -1150,9 +1817,38 @@ async function handleSubmitSurvey(event) {
 
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.textContent = "응답 제출";
+      submitBtn.textContent = surveyPreset?.button_labels?.submit || "응답 제출";
     }
   }
+}
+
+
+function moveToQuestionPage(questionCode) {
+  const mapping = questionPageMap.find(
+    (row) => row.question_code === questionCode
+  );
+
+  if (!mapping || !mapping.survey_pages) {
+    return;
+  }
+
+  const pageCode = mapping.survey_pages.page_code;
+
+  const targetIndex = surveyFlowPages.findIndex(
+    (page) => page.page_code === pageCode
+  );
+
+  if (targetIndex < 0) {
+    return;
+  }
+
+  currentPageIndex = targetIndex;
+  renderCurrentPage();
+
+  setTimeout(() => {
+    markQuestionAsMissing(questionCode);
+    scrollToQuestion(questionCode);
+  }, 100);
 }
 
 
