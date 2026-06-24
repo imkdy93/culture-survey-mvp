@@ -557,13 +557,17 @@ async function loadSurveyPreset() {
     .eq("is_active", true)
     .order("updated_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error("preset 조회 실패:", error);
     throw new Error("설문 사전 설정을 불러오지 못했습니다.");
   }
 
+  if (!data) {
+    throw new Error("활성화된 설문 preset이 없습니다. 관리자 설정을 확인해 주세요.");
+  }
+  
   surveyPreset = data;
   console.log("[surveyPreset]", surveyPreset);
 }
