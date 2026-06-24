@@ -4,7 +4,7 @@
 // project_settings + draft_responses 임시저장/이어하기 연동 버전
 // ============================================================
 
-console.log("app.js loaded: project_settings + draft version 2026-06-24-01");
+console.log("app.js loaded: project_settings + draft version 2026-06-24-02");
 
 // ============================================================
 // 1. Supabase 연결 설정
@@ -186,6 +186,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (saveAndExitBtn) {
       saveAndExitBtn.addEventListener("click", handleSaveAndExit);
     }
+
+    ensureSaveAndExitButton();
 
   } catch (error) {
     console.error(error);
@@ -620,6 +622,31 @@ function renderSurvey() {
 }
 
 
+function ensureSaveAndExitButton() {
+  const submitArea = document.querySelector(".submit-area");
+  const submitBtn = document.getElementById("submitBtn");
+
+  if (!submitArea || !submitBtn) {
+    return;
+  }
+
+  let saveAndExitBtn = document.getElementById("saveAndExitBtn");
+
+  if (!saveAndExitBtn) {
+    saveAndExitBtn = document.createElement("button");
+    saveAndExitBtn.type = "button";
+    saveAndExitBtn.id = "saveAndExitBtn";
+    saveAndExitBtn.className = "secondary-btn";
+    saveAndExitBtn.textContent = "임시저장 후 종료";
+
+    submitArea.insertBefore(saveAndExitBtn, submitBtn);
+  }
+
+  saveAndExitBtn.removeEventListener("click", handleSaveAndExit);
+  saveAndExitBtn.addEventListener("click", handleSaveAndExit);
+}
+
+
 // ============================================================
 // 16. 설문 섹션 표시
 // ============================================================
@@ -627,6 +654,8 @@ function renderSurvey() {
 function showSurveySection() {
   const tokenSection = document.getElementById("tokenSection");
   const surveySection = document.getElementById("surveySection");
+
+  ensureSaveAndExitButton();
 
   if (tokenSection) {
     tokenSection.classList.add("hidden");
