@@ -1654,19 +1654,25 @@ async function handleSubmitSurvey(event) {
       throw new Error("응답자 정보가 없습니다.");
     }
 
-    if (currentPage && currentPage.page_type === "ITEMS") {
-      const valid = validateCurrentItemsPage();
+  if (currentPage && currentPage.page_type === "ITEMS") {
+    const valid = validateCurrentItemsPage();
 
-      if (!valid) {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = surveyPreset?.button_labels?.submit || "응답 제출";
-        }
-        return;
+    if (!valid) {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = surveyPreset?.button_labels?.submit || "응답 제출";
       }
-
-      await saveCurrentPageVisibleAnswers();
+      return;
     }
+
+    await saveCurrentPageVisibleAnswers();
+
+    await updateDraftPageState({
+      currentPageCode: currentPage.page_code,
+      currentPageOrder: currentPage.page_order,
+      lastCompletedPageOrder: currentPage.page_order,
+    });
+  }
 
     if (currentDraftResponse) {
       await loadDraftAnswers(currentDraftResponse.id);
