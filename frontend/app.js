@@ -446,16 +446,50 @@ async function initAnonymousSurvey() {
 
   const anonymousSessionId = getOrCreateAnonymousSessionId(currentProject.id);
 
-  currentRespondent = {
-    id: null,
-    project_id: currentProject.id,
-    respondent_key: "ANONYMOUS",
-    respondent_token: anonymousSessionId,
-    org_name: "익명 응답",
-    is_submitted: false,
-    is_anonymous_session: true,
-    anonymous_session_id: anonymousSessionId,
-  };
+  // 1) 기존 anonymous respondent가 있는지 확인
+  const { data: existingRespondent, error: existingError } = await supabaseClient
+    .from("respondents")
+    .select("*")
+    .eq("project_id", currentProject.id)
+    .eq("respondent_token", anonymousSessionId)
+    .maybeSingle();
+
+  if (existingError) {
+    console.error("익명 응답자 조회 실패:", existingError);
+    throw new Error("익명 응답자 정보를 확인하지 못했습니다.");
+  }
+
+  if (existingRespondent) {
+    if (existingRespondent.is_submitted) {
+      showMessage("tokenMessage", "이미 제출이 완료된 응답입니다.", true);
+      return;
+    }
+
+    currentRespondent = existingRespondent;
+  } else {
+    // 2) 없으면 anonymous respondent 생성
+    const { data: newRespondent, error: insertError } = await supabaseClient
+      .from("respondents")
+      .insert({
+        project_id: currentProject.id,
+        respondent_key: "ANONYMOUS",
+        respondent_token: anonymousSessionId,
+        org_name: "익명 응답",
+        is_submitted: false,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("익명 응답자 생성 실패:", insertError);
+      throw new Error("익명 응답자 정보를 생성하지 못했습니다.");
+    }
+
+    currentRespondent = newRespondent;
+  }
+
+  currentRespondent.is_anonymous_session = true;
+  currentRespondent.anonymous_session_id = anonymousSessionId;
 
   await loadQuestionsAndRender();
 
@@ -647,8 +681,7 @@ async function handleSubmitSurvey(event) {
       project_id: currentProject.id,
       respondent_id: currentRespondent.id,
       respondent_token: currentRespondent.respondent_token,
-      source_type:
-        currentRespondent.is_anonymous_session ? "ANONYMOUS_SESSION" : "PLATFORM",
+      source_type: "PLATFORM",
       started_at: null,
       submitted_at: new Date().toISOString(),
       user_agent: navigator.userAgent,
