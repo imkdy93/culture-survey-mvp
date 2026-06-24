@@ -567,7 +567,7 @@ async function loadSurveyPreset() {
   if (!data) {
     throw new Error("활성화된 설문 preset이 없습니다. 관리자 설정을 확인해 주세요.");
   }
-  
+
   surveyPreset = data;
   console.log("[surveyPreset]", surveyPreset);
 }
