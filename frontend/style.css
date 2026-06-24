@@ -103,6 +103,15 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.secondary-btn {
+  background: #6B7280 !important;
+  margin-right: 12px;
+}
+
+.secondary-btn:hover {
+  opacity: 0.9;
+}
+
 .hidden {
   display: none;
 }

@@ -173,6 +173,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const loadSurveyBtn = document.getElementById("loadSurveyBtn");
     const surveyForm = document.getElementById("surveyForm");
+    const saveAndExitBtn = document.getElementById("saveAndExitBtn");
 
     if (loadSurveyBtn) {
       loadSurveyBtn.addEventListener("click", handleLoadSurvey);
@@ -181,6 +182,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (surveyForm) {
       surveyForm.addEventListener("submit", handleSubmitSurvey);
     }
+
+    if (saveAndExitBtn) {
+      saveAndExitBtn.addEventListener("click", handleSaveAndExit);
+    }
+
   } catch (error) {
     console.error(error);
     showMessage(
@@ -1120,6 +1126,27 @@ async function handleSubmitSurvey(event) {
   }
 }
 
+
+async function handleSaveAndExit() {
+  try {
+    if (!currentDraftResponse) {
+      showDraftStatus("아직 임시저장할 응답이 없습니다.", true);
+      return;
+    }
+
+    await updateDraftResponseSummary();
+
+    showDraftStatus("임시저장되었습니다. 나중에 동일 링크로 이어서 작성할 수 있습니다.");
+
+    alert(
+      "현재까지의 응답이 임시저장되었습니다.\n\n" +
+      "나중에 동일한 설문 링크로 다시 접속하면 이어서 작성할 수 있습니다."
+    );
+  } catch (error) {
+    console.error(error);
+    showDraftStatus("임시저장 중 오류가 발생했습니다.", true);
+  }
+}
 
 // ============================================================
 // 28. draft 상태 메시지 표시
