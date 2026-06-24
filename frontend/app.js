@@ -1,7 +1,7 @@
 // ============================================================
 // culture-survey-mvp
 // Supabase 연결 조직문화 설문 화면
-// project_settings / project_runtime_settings 연동 버전
+// project_settings + draft_responses 임시저장/이어하기 연동 버전
 // ============================================================
 
 
@@ -9,14 +9,11 @@
 // 1. Supabase 연결 설정
 // ============================================================
 
-// Supabase Project URL
 const SUPABASE_URL = "https://dzdpailvjbixupfnxmdh.supabase.co";
 
-// Supabase anon public key
 // 실제 운영 중인 anon key를 여기에 넣으세요.
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6ZHBhaWx2amJpeHVwZm54bWRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNTA4NDgsImV4cCI6MjA5NzYyNjg0OH0.XYGGFFDhkKtBko4T6_LNvxf6fe6SUxu3quZLJm6A02M";
+const SUPABASE_ANON_KEY = "";
 
-// Supabase client 생성
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 
@@ -36,6 +33,11 @@ let clientSlug = null;
 let urlToken = null;
 let projectCode = null;
 
+let currentDraftResponse = null;
+let currentDraftAnswers = {};
+
+let autoSaveTimer = null;
+
 const scaleLabels = {
   1: "전혀 아니다",
   2: "아니다",
@@ -53,13 +55,6 @@ function getUrlContext() {
   const pathParts = window.location.pathname
     .split("/")
     .filter(Boolean);
-
-  // 예:
-  // /acme/survey/?token=acme-token-001
-  // pathParts = ["acme", "survey"]
-  //
-  // /demo/
-  // pathParts = ["demo"]
 
   const detectedClientSlug = pathParts[0] || "demo";
 
@@ -246,19 +241,16 @@ async function initApp() {
 
   prepareEntryScreen();
 
-  // PERSONAL_TOKEN인데 URL에 token이 있으면 자동으로 설문 로드
   if (entryMode.mode === "PERSONAL_TOKEN" && urlToken) {
     await initPersonalTokenSurvey(urlToken);
     return;
   }
 
-  // ANONYMOUS_SESSION이면 token 입력 없이 바로 설문 로드
   if (entryMode.mode === "ANONYMOUS_SESSION") {
     await initAnonymousSurvey();
     return;
   }
 
-  // 그 외 방식은 아직 MVP에서 준비만 해둠
   if (
     entryMode.mode === "GROUP_TOKEN" ||
     entryMode.mode === "EMAIL_RECOVERY" ||
@@ -353,7 +345,6 @@ function prepareEntryScreen() {
 
 // ============================================================
 // 10. 설문 시작 버튼 처리
-// PERSONAL_TOKEN 수동 입력 방식
 // ============================================================
 
 async function handleLoadSurvey() {
@@ -417,19 +408,9 @@ async function initPersonalTokenSurvey(token) {
   currentRespondent = respondent;
 
   await loadQuestionsAndRender();
+  await prepareDraftAfterSurveyLoad();
 
-  const tokenSection = document.getElementById("tokenSection");
-  const surveySection = document.getElementById("surveySection");
-
-  if (tokenSection) {
-    tokenSection.classList.add("hidden");
-  }
-
-  if (surveySection) {
-    surveySection.classList.remove("hidden");
-  }
-
-  showMessage("tokenMessage", "", false);
+  showSurveySection();
 }
 
 
@@ -446,7 +427,6 @@ async function initAnonymousSurvey() {
 
   const anonymousSessionId = getOrCreateAnonymousSessionId(currentProject.id);
 
-  // 1) 기존 anonymous respondent가 있는지 확인
   const { data: existingRespondent, error: existingError } = await supabaseClient
     .from("respondents")
     .select("*")
@@ -467,7 +447,6 @@ async function initAnonymousSurvey() {
 
     currentRespondent = existingRespondent;
   } else {
-    // 2) 없으면 anonymous respondent 생성
     const { data: newRespondent, error: insertError } = await supabaseClient
       .from("respondents")
       .insert({
@@ -492,25 +471,14 @@ async function initAnonymousSurvey() {
   currentRespondent.anonymous_session_id = anonymousSessionId;
 
   await loadQuestionsAndRender();
+  await prepareDraftAfterSurveyLoad();
 
-  const tokenSection = document.getElementById("tokenSection");
-  const surveySection = document.getElementById("surveySection");
-
-  if (tokenSection) {
-    tokenSection.classList.add("hidden");
-  }
-
-  if (surveySection) {
-    surveySection.classList.remove("hidden");
-  }
-
-  showMessage("tokenMessage", "", false);
+  showSurveySection();
 }
 
 
 // ============================================================
 // 13. anonymous session id 생성
-// MVP용: 브라우저 localStorage 사용
 // ============================================================
 
 function getOrCreateAnonymousSessionId(projectId) {
@@ -560,6 +528,7 @@ async function loadQuestionsAndRender() {
   currentQuestions = questions;
 
   renderSurvey();
+  bindDraftAutoSaveEvents();
 }
 
 
@@ -572,13 +541,11 @@ function renderSurvey() {
   const respondentOrgEl = document.getElementById("respondentOrg");
 
   if (respondentKeyEl) {
-    respondentKeyEl.textContent =
-      currentRespondent.respondent_key || "-";
+    respondentKeyEl.textContent = currentRespondent.respondent_key || "-";
   }
 
   if (respondentOrgEl) {
-    respondentOrgEl.textContent =
-      currentRespondent.org_name || "-";
+    respondentOrgEl.textContent = currentRespondent.org_name || "-";
   }
 
   const container = document.getElementById("questionContainer");
@@ -612,6 +579,9 @@ function renderSurvey() {
             type="radio"
             name="${question.question_code}"
             value="${value}"
+            data-question-id="${question.id}"
+            data-question-code="${question.question_code}"
+            data-question-type="${question.question_type}"
             required
           />
           <div class="scale-score">${value}</div>
@@ -627,6 +597,9 @@ function renderSurvey() {
       textarea.name = question.question_code;
       textarea.rows = 4;
       textarea.placeholder = "의견을 입력해 주세요.";
+      textarea.dataset.questionId = question.id;
+      textarea.dataset.questionCode = question.question_code;
+      textarea.dataset.questionType = question.question_type;
 
       if (question.required_yn) {
         textarea.required = true;
@@ -641,7 +614,386 @@ function renderSurvey() {
 
 
 // ============================================================
-// 16. 설문 제출
+// 16. 설문 섹션 표시
+// ============================================================
+
+function showSurveySection() {
+  const tokenSection = document.getElementById("tokenSection");
+  const surveySection = document.getElementById("surveySection");
+
+  if (tokenSection) {
+    tokenSection.classList.add("hidden");
+  }
+
+  if (surveySection) {
+    surveySection.classList.remove("hidden");
+  }
+
+  showMessage("tokenMessage", "", false);
+}
+
+
+// ============================================================
+// 17. draft 준비
+// ============================================================
+
+async function prepareDraftAfterSurveyLoad() {
+  if (!runtimeSettings || !runtimeSettings.allow_draft_save) {
+    return;
+  }
+
+  const existingDraft = await findActiveDraft();
+
+  if (existingDraft) {
+    const continueDraft = confirm(
+      `이전에 작성 중인 응답이 있습니다.\n\n` +
+      `저장된 응답 수: ${existingDraft.answered_count || 0}개\n` +
+      `마지막 저장 시각: ${formatDateTime(existingDraft.last_saved_at)}\n\n` +
+      `이어서 작성하시겠습니까?\n\n` +
+      `확인: 이어서 작성\n취소: 처음부터 다시 작성`
+    );
+
+    if (continueDraft) {
+      currentDraftResponse = existingDraft;
+      await loadDraftAnswers(existingDraft.id);
+      applyDraftAnswersToForm();
+      showDraftStatus("이전에 저장된 응답을 불러왔습니다.");
+      return;
+    }
+
+    await resetDraft(existingDraft.id);
+  }
+
+  currentDraftResponse = await createDraftResponse();
+  currentDraftAnswers = {};
+  showDraftStatus("임시저장이 시작되었습니다.");
+}
+
+
+// ============================================================
+// 18. 기존 draft 조회
+// ============================================================
+
+async function findActiveDraft() {
+  let query = supabaseClient
+    .from("draft_responses")
+    .select("*")
+    .eq("project_id", currentProject.id)
+    .eq("draft_status", "IN_PROGRESS")
+    .order("last_saved_at", { ascending: false })
+    .limit(1);
+
+  if (currentRespondent && currentRespondent.id) {
+    query = query.eq("respondent_id", currentRespondent.id);
+  } else if (currentRespondent && currentRespondent.respondent_token) {
+    query = query.eq("respondent_token", currentRespondent.respondent_token);
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error) {
+    console.error("draft 조회 실패:", error);
+    throw new Error("임시저장 정보를 확인하지 못했습니다.");
+  }
+
+  return data || null;
+}
+
+
+// ============================================================
+// 19. draft 생성
+// ============================================================
+
+async function createDraftResponse() {
+  const { data, error } = await supabaseClient
+    .from("draft_responses")
+    .insert({
+      project_id: currentProject.id,
+      respondent_id: currentRespondent.id,
+      respondent_token: currentRespondent.respondent_token,
+      anonymous_session_id: currentRespondent.anonymous_session_id || null,
+      draft_status: "IN_PROGRESS",
+      answered_count: 0,
+      total_question_count: currentQuestions.length,
+      started_at: new Date().toISOString(),
+      last_saved_at: new Date().toISOString(),
+      user_agent: navigator.userAgent,
+      ip_address: null,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("draft 생성 실패:", error);
+    throw new Error("임시저장을 시작하지 못했습니다.");
+  }
+
+  console.log("[currentDraftResponse]", data);
+
+  return data;
+}
+
+
+// ============================================================
+// 20. draft reset 처리
+// ============================================================
+
+async function resetDraft(draftResponseId) {
+  const { error } = await supabaseClient
+    .from("draft_responses")
+    .update({
+      draft_status: "RESET",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", draftResponseId);
+
+  if (error) {
+    console.error("draft RESET 실패:", error);
+    throw new Error("기존 임시응답을 초기화하지 못했습니다.");
+  }
+}
+
+
+// ============================================================
+// 21. draft answers 불러오기
+// ============================================================
+
+async function loadDraftAnswers(draftResponseId) {
+  const { data, error } = await supabaseClient
+    .from("draft_response_answers")
+    .select("*")
+    .eq("draft_response_id", draftResponseId);
+
+  if (error) {
+    console.error("draft answers 조회 실패:", error);
+    throw new Error("임시저장 응답을 불러오지 못했습니다.");
+  }
+
+  currentDraftAnswers = {};
+
+  (data || []).forEach((row) => {
+    currentDraftAnswers[row.question_code] = row;
+  });
+
+  console.log("[currentDraftAnswers]", currentDraftAnswers);
+}
+
+
+// ============================================================
+// 22. draft answers를 화면에 반영
+// ============================================================
+
+function applyDraftAnswersToForm() {
+  Object.values(currentDraftAnswers).forEach((answer) => {
+    const question = currentQuestions.find(
+      (q) => q.question_code === answer.question_code
+    );
+
+    if (!question) {
+      return;
+    }
+
+    if (question.question_type === "SCALE" && answer.answer_value !== null) {
+      const radio = document.querySelector(
+        `input[name="${question.question_code}"][value="${answer.answer_value}"]`
+      );
+
+      if (radio) {
+        radio.checked = true;
+      }
+    }
+
+    if (question.question_type === "TEXT") {
+      const textarea = document.querySelector(
+        `textarea[name="${question.question_code}"]`
+      );
+
+      if (textarea) {
+        textarea.value = answer.answer_text || "";
+      }
+    }
+  });
+}
+
+
+// ============================================================
+// 23. 자동저장 이벤트 연결
+// ============================================================
+
+function bindDraftAutoSaveEvents() {
+  const surveyForm = document.getElementById("surveyForm");
+
+  if (!surveyForm) {
+    return;
+  }
+
+  surveyForm.querySelectorAll("input[type='radio'], textarea").forEach((el) => {
+    el.addEventListener("change", handleDraftInputChange);
+    el.addEventListener("input", handleDraftInputChangeDebounced);
+  });
+}
+
+
+function handleDraftInputChange(event) {
+  saveSingleDraftAnswerFromElement(event.target);
+}
+
+
+function handleDraftInputChangeDebounced(event) {
+  const target = event.target;
+
+  if (target.tagName !== "TEXTAREA") {
+    return;
+  }
+
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer);
+  }
+
+  autoSaveTimer = setTimeout(() => {
+    saveSingleDraftAnswerFromElement(target);
+  }, 700);
+}
+
+
+// ============================================================
+// 24. 단일 문항 임시저장
+// ============================================================
+
+async function saveSingleDraftAnswerFromElement(element) {
+  try {
+    if (!runtimeSettings || !runtimeSettings.allow_draft_save) {
+      return;
+    }
+
+    if (!currentDraftResponse) {
+      return;
+    }
+
+    const questionCode = element.dataset.questionCode || element.name;
+    const questionId = element.dataset.questionId;
+    const questionType = element.dataset.questionType;
+
+    if (!questionCode || !questionId || !questionType) {
+      return;
+    }
+
+    let answerValue = null;
+    let answerText = null;
+
+    if (questionType === "SCALE") {
+      if (!element.checked) {
+        return;
+      }
+
+      answerValue = Number(element.value);
+    }
+
+    if (questionType === "TEXT") {
+      answerText = element.value || "";
+    }
+
+    const payload = {
+      draft_response_id: currentDraftResponse.id,
+      project_id: currentProject.id,
+      respondent_id: currentRespondent.id,
+      question_id: questionId,
+      question_code: questionCode,
+      answer_value: answerValue,
+      answer_text: answerText,
+      saved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabaseClient
+      .from("draft_response_answers")
+      .upsert(payload, {
+        onConflict: "draft_response_id,question_id",
+      });
+
+    if (error) {
+      console.error("문항 임시저장 실패:", error);
+      showDraftStatus("임시저장 실패", true);
+      return;
+    }
+
+    await updateDraftResponseSummary();
+
+    showDraftStatus("임시저장됨");
+  } catch (error) {
+    console.error(error);
+    showDraftStatus("임시저장 중 오류가 발생했습니다.", true);
+  }
+}
+
+
+// ============================================================
+// 25. draft 요약 업데이트
+// ============================================================
+
+async function updateDraftResponseSummary() {
+  if (!currentDraftResponse) {
+    return;
+  }
+
+  const { count, error: countError } = await supabaseClient
+    .from("draft_response_answers")
+    .select("*", { count: "exact", head: true })
+    .eq("draft_response_id", currentDraftResponse.id);
+
+  if (countError) {
+    console.error("draft count 조회 실패:", countError);
+    return;
+  }
+
+  const answeredCount = count || 0;
+
+  const { data, error } = await supabaseClient
+    .from("draft_responses")
+    .update({
+      answered_count: answeredCount,
+      total_question_count: currentQuestions.length,
+      last_saved_at: new Date().toISOString(),
+    })
+    .eq("id", currentDraftResponse.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("draft summary 업데이트 실패:", error);
+    return;
+  }
+
+  currentDraftResponse = data;
+}
+
+
+// ============================================================
+// 26. draft 제출완료 처리
+// ============================================================
+
+async function markDraftAsSubmitted() {
+  if (!currentDraftResponse) {
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("draft_responses")
+    .update({
+      draft_status: "SUBMITTED",
+      submitted_at: new Date().toISOString(),
+      last_saved_at: new Date().toISOString(),
+    })
+    .eq("id", currentDraftResponse.id);
+
+  if (error) {
+    console.error("draft SUBMITTED 처리 실패:", error);
+  }
+}
+
+
+// ============================================================
+// 27. 설문 제출
 // ============================================================
 
 async function handleSubmitSurvey(event) {
@@ -665,7 +1017,6 @@ async function handleSubmitSurvey(event) {
 
     const formData = new FormData(event.target);
 
-    // 1) 필수 응답 확인
     for (const question of currentQuestions) {
       if (question.required_yn) {
         const value = formData.get(question.question_code);
@@ -676,13 +1027,12 @@ async function handleSubmitSurvey(event) {
       }
     }
 
-    // 2) responses 테이블에 응답 제출 1건 생성
     const responseInsertPayload = {
       project_id: currentProject.id,
       respondent_id: currentRespondent.id,
       respondent_token: currentRespondent.respondent_token,
       source_type: "PLATFORM",
-      started_at: null,
+      started_at: currentDraftResponse ? currentDraftResponse.started_at : null,
       submitted_at: new Date().toISOString(),
       user_agent: navigator.userAgent,
       ip_address: null,
@@ -699,7 +1049,6 @@ async function handleSubmitSurvey(event) {
       throw responseError;
     }
 
-    // 3) response_answers 테이블에 문항별 응답값 저장
     const answerRows = currentQuestions.map((question) => {
       const rawValue = formData.get(question.question_code);
 
@@ -723,14 +1072,14 @@ async function handleSubmitSurvey(event) {
       throw answersError;
     }
 
-    // 4) respondents 테이블 제출 완료 처리
-    // PERSONAL_TOKEN / ANONYMOUS_SESSION 모두 respondents.id가 있으면 제출완료 처리
     if (currentRespondent.id) {
+      const submittedAt = new Date().toISOString();
+
       const { error: respondentUpdateError } = await supabaseClient
         .from("respondents")
         .update({
           is_submitted: true,
-          submitted_at: new Date().toISOString(),
+          submitted_at: submittedAt,
         })
         .eq("id", currentRespondent.id);
 
@@ -739,8 +1088,10 @@ async function handleSubmitSurvey(event) {
       }
 
       currentRespondent.is_submitted = true;
-      currentRespondent.submitted_at = new Date().toISOString();
-}
+      currentRespondent.submitted_at = submittedAt;
+    }
+
+    await markDraftAsSubmitted();
 
     const surveySection = document.getElementById("surveySection");
     const completeSection = document.getElementById("completeSection");
@@ -770,7 +1121,29 @@ async function handleSubmitSurvey(event) {
 
 
 // ============================================================
-// 17. 메시지 표시
+// 28. draft 상태 메시지 표시
+// ============================================================
+
+function showDraftStatus(message, isError = false) {
+  const element = document.getElementById("draftMessage");
+
+  if (!element) {
+    return;
+  }
+
+  element.textContent = message || "";
+
+  if (!message) {
+    element.className = "message";
+    return;
+  }
+
+  element.className = isError ? "message error" : "message success";
+}
+
+
+// ============================================================
+// 29. 일반 메시지 표시
 // ============================================================
 
 function showMessage(elementId, message, isError = false) {
@@ -788,4 +1161,29 @@ function showMessage(elementId, message, isError = false) {
   }
 
   element.className = isError ? "message error" : "message success";
+}
+
+
+// ============================================================
+// 30. 날짜 표시
+// ============================================================
+
+function formatDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+
+  try {
+    const date = new Date(value);
+
+    return date.toLocaleString("ko-KR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch (error) {
+    return String(value);
+  }
 }
