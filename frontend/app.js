@@ -724,8 +724,8 @@ async function handleSubmitSurvey(event) {
     }
 
     // 4) respondents 테이블 제출 완료 처리
-    // anonymous session은 respondents.id가 없으므로 update 생략
-    if (!currentRespondent.is_anonymous_session && currentRespondent.id) {
+    // PERSONAL_TOKEN / ANONYMOUS_SESSION 모두 respondents.id가 있으면 제출완료 처리
+    if (currentRespondent.id) {
       const { error: respondentUpdateError } = await supabaseClient
         .from("respondents")
         .update({
@@ -737,7 +737,10 @@ async function handleSubmitSurvey(event) {
       if (respondentUpdateError) {
         throw respondentUpdateError;
       }
-    }
+
+      currentRespondent.is_submitted = true;
+      currentRespondent.submitted_at = new Date().toISOString();
+}
 
     const surveySection = document.getElementById("surveySection");
     const completeSection = document.getElementById("completeSection");
