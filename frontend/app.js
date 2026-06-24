@@ -4,6 +4,7 @@
 // project_settings + draft_responses 임시저장/이어하기 연동 버전
 // ============================================================
 
+console.log("app.js loaded: project_settings + draft version 2026-06-24-01");
 
 // ============================================================
 // 1. Supabase 연결 설정
