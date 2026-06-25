@@ -4,7 +4,7 @@
 // project_settings + draft_responses 임시저장/이어하기 연동 버전
 // ============================================================
 
-console.log("app.js loaded: page survey + already submitted version 2026-06-25-03");
+console.log("app.js loaded: page survey + already submitted version 2026-06-25-04");
 
 // ============================================================
 // 1. Supabase 연결 설정
@@ -1114,6 +1114,63 @@ function showAlreadySubmittedSection(respondent) {
 }
 
 
+function showCompleteSection() {
+  const surveyCard = document.querySelector(".survey-card");
+
+  if (!surveyCard) {
+    console.error("survey-card 요소를 찾을 수 없습니다.");
+    return;
+  }
+
+  const title =
+    surveyPreset?.page_texts?.outro_title ||
+    "응답이 제출되었습니다.";
+
+  const body =
+    surveyPreset?.page_texts?.outro_body ||
+    "참여해 주셔서 감사합니다.";
+
+  const respondentKey = currentRespondent?.respondent_key || "-";
+  const orgName = currentRespondent?.org_name || "-";
+  const submittedAt = currentRespondent?.submitted_at
+    ? formatDateTime(currentRespondent.submitted_at)
+    : formatDateTime(new Date().toISOString());
+
+  surveyCard.innerHTML = `
+    <section id="completeSection">
+      <div class="complete-card">
+        <h2>${escapeHtml(title)}</h2>
+
+        <p>
+          ${escapeHtml(body)}
+        </p>
+
+        <div class="submitted-info-box">
+          <p>
+            <strong>응답자 코드:</strong>
+            <span>${escapeHtml(respondentKey)}</span>
+          </p>
+          <p>
+            <strong>소속:</strong>
+            <span>${escapeHtml(orgName)}</span>
+          </p>
+          <p>
+            <strong>제출일시:</strong>
+            <span>${escapeHtml(submittedAt)}</span>
+          </p>
+        </div>
+
+        <p class="help-text">
+          응답 내용은 개인 식별이 아닌 통계 분석 목적으로만 활용됩니다.
+        </p>
+      </div>
+    </section>
+  `;
+
+  console.log("[complete respondent]", currentRespondent);
+}
+
+
 // ============================================================
 // 16. 설문 섹션 표시
 // ============================================================
@@ -1869,17 +1926,9 @@ async function handleSubmitSurvey(event) {
     }
 
     await markDraftAsSubmitted();
-
-    const surveySection = document.getElementById("surveySection");
-    const completeSection = document.getElementById("completeSection");
-
-    if (surveySection) {
-      surveySection.classList.add("hidden");
-    }
-
-    if (completeSection) {
-      completeSection.classList.remove("hidden");
-    }
+    
+    showCompleteSection();
+    
   } catch (error) {
     console.error(error);
 
