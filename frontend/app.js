@@ -4,7 +4,7 @@
 // project_settings + draft_responses 임시저장/이어하기 연동 버전
 // ============================================================
 
-console.log("app.js loaded: page survey + draft version 2026-06-24-07");
+console.log("app.js loaded: page survey + already submitted version 2026-06-25-01");
 
 // ============================================================
 // 1. Supabase 연결 설정
@@ -413,33 +413,35 @@ async function handleLoadSurvey() {
 async function initPersonalTokenSurvey(token) {
   console.log("PERSONAL_TOKEN 방식으로 설문 시작:", token);
 
-  if (!currentProject) {
-    throw new Error("프로젝트 정보가 없습니다.");
+  if (!token) {
+    showMessage("tokenMessage", "설문 토큰이 없습니다.", true);
+    return;
   }
 
-  const { data: respondent, error: respondentError } = await supabaseClient
+  const { data: respondent, error } = await supabaseClient
     .from("respondents")
     .select("*")
     .eq("project_id", currentProject.id)
     .eq("respondent_token", token)
     .single();
 
-  if (respondentError || !respondent) {
-    console.error("응답자 조회 실패:", respondentError);
-    throw new Error("유효하지 않은 토큰입니다.");
+  if (error || !respondent) {
+    console.error(error);
+    showMessage("tokenMessage", "유효하지 않은 설문 링크입니다.", true);
+    return;
   }
 
   if (respondent.is_submitted) {
-    showMessage("tokenMessage", "이미 제출이 완료된 응답자입니다.", true);
+    currentRespondent = respondent;
+    showAlreadySubmittedSection(respondent);
     return;
   }
 
   currentRespondent = respondent;
 
   await loadQuestionsAndRender();
-  await prepareDraftAfterSurveyLoad();
-
   showSurveySection();
+  await prepareDraftAfterSurveyLoad();
 }
 
 
@@ -470,7 +472,11 @@ async function initAnonymousSurvey() {
 
   if (existingRespondent) {
     if (existingRespondent.is_submitted) {
-      showMessage("tokenMessage", "이미 제출이 완료된 응답입니다.", true);
+      currentRespondent = existingRespondent;
+      currentRespondent.is_anonymous_session = true;
+      currentRespondent.anonymous_session_id = anonymousSessionId;
+
+      showAlreadySubmittedSection(existingRespondent);
       return;
     }
 
@@ -500,9 +506,8 @@ async function initAnonymousSurvey() {
   currentRespondent.anonymous_session_id = anonymousSessionId;
 
   await loadQuestionsAndRender();
-  await prepareDraftAfterSurveyLoad();
-
   showSurveySection();
+  await prepareDraftAfterSurveyLoad();
 }
 
 
@@ -1046,6 +1051,48 @@ async function handlePrevPage() {
       error.message || "이전 페이지로 이동하지 못했습니다.",
       true
     );
+  }
+}
+
+
+function showAlreadySubmittedSection(respondent) {
+  const tokenSection = document.getElementById("tokenSection");
+  const surveySection = document.getElementById("surveySection");
+  const completeSection = document.getElementById("completeSection");
+  const alreadySubmittedSection = document.getElementById("alreadySubmittedSection");
+
+  if (tokenSection) {
+    tokenSection.classList.add("hidden");
+  }
+
+  if (surveySection) {
+    surveySection.classList.add("hidden");
+  }
+
+  if (completeSection) {
+    completeSection.classList.add("hidden");
+  }
+
+  if (alreadySubmittedSection) {
+    alreadySubmittedSection.classList.remove("hidden");
+  }
+
+  const keyEl = document.getElementById("alreadySubmittedRespondentKey");
+  const orgEl = document.getElementById("alreadySubmittedOrg");
+  const submittedAtEl = document.getElementById("alreadySubmittedAt");
+
+  if (keyEl) {
+    keyEl.textContent = respondent?.respondent_key || "-";
+  }
+
+  if (orgEl) {
+    orgEl.textContent = respondent?.org_name || "-";
+  }
+
+  if (submittedAtEl) {
+    submittedAtEl.textContent = respondent?.submitted_at
+      ? formatDateTime(respondent.submitted_at)
+      : "-";
   }
 }
 
