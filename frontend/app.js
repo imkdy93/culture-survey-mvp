@@ -413,6 +413,10 @@ async function handleLoadSurvey() {
 async function initPersonalTokenSurvey(token) {
   console.log("PERSONAL_TOKEN 방식으로 설문 시작:", token);
 
+  if (!currentProject) {
+    throw new Error("프로젝트 정보가 없습니다.");
+  }
+
   if (!token) {
     showMessage("tokenMessage", "설문 토큰이 없습니다.", true);
     return;
@@ -423,14 +427,20 @@ async function initPersonalTokenSurvey(token) {
     .select("*")
     .eq("project_id", currentProject.id)
     .eq("respondent_token", token)
-    .single();
+    .maybeSingle();
 
-  if (error || !respondent) {
-    console.error(error);
+  if (error) {
+    console.error("응답자 조회 실패:", error);
+    showMessage("tokenMessage", "응답자 정보를 확인하지 못했습니다.", true);
+    return;
+  }
+
+  if (!respondent) {
     showMessage("tokenMessage", "유효하지 않은 설문 링크입니다.", true);
     return;
   }
 
+  // 핵심: 이미 제출한 응답자는 설문 로딩/draft 로직으로 보내지 않음
   if (respondent.is_submitted) {
     currentRespondent = respondent;
     showAlreadySubmittedSection(respondent);
