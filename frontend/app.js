@@ -4,7 +4,7 @@
 // project_settings + draft_responses 임시저장/이어하기 연동 버전
 // ============================================================
 
-console.log("app.js loaded: page survey + already submitted version 2026-06-25-01");
+console.log("app.js loaded: page survey + already submitted version 2026-06-25-02");
 
 // ============================================================
 // 1. Supabase 연결 설정
@@ -1083,9 +1083,41 @@ function showAlreadySubmittedSection(respondent) {
     completeSection.classList.add("hidden");
   }
 
-  if (alreadySubmittedSection) {
-    alreadySubmittedSection.classList.remove("hidden");
+  if (!alreadySubmittedSection) {
+    console.error("alreadySubmittedSection 요소를 찾을 수 없습니다.");
+    return;
   }
+
+  alreadySubmittedSection.innerHTML = `
+    <div class="complete-card">
+      <h2>이미 제출이 완료된 설문입니다.</h2>
+
+      <p>
+        이 설문은 이미 제출이 완료되어 다시 응답할 수 없습니다.
+      </p>
+
+      <div class="submitted-info-box">
+        <p>
+          <strong>응답자 코드:</strong>
+          <span id="alreadySubmittedRespondentKey">-</span>
+        </p>
+        <p>
+          <strong>소속:</strong>
+          <span id="alreadySubmittedOrg">-</span>
+        </p>
+        <p>
+          <strong>제출일시:</strong>
+          <span id="alreadySubmittedAt">-</span>
+        </p>
+      </div>
+
+      <p class="help-text">
+        응답 수정 또는 재참여가 필요한 경우 설문 운영 담당자에게 문의해 주세요.
+      </p>
+    </div>
+  `;
+
+  alreadySubmittedSection.classList.remove("hidden");
 
   const keyEl = document.getElementById("alreadySubmittedRespondentKey");
   const orgEl = document.getElementById("alreadySubmittedOrg");
@@ -1104,6 +1136,8 @@ function showAlreadySubmittedSection(respondent) {
       ? formatDateTime(respondent.submitted_at)
       : "-";
   }
+
+  console.log("[already submitted respondent]", respondent);
 }
 
 

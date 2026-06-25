@@ -6,7 +6,7 @@
 
   <title>조직문화 진단 설문 MVP</title>
 
-  <link rel="stylesheet" href="/style.css?v=20260625-01" />
+  <link rel="stylesheet" href="/style.css?v=20260625-02" />
 
   <!-- Supabase JS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -79,32 +79,33 @@
       </section>
 
       <section id="alreadySubmittedSection" class="hidden">
-          <div class="complete-card">
-            <h2>이미 제출이 완료된 설문입니다.</h2>
+  <div class="complete-card">
+    <h2>이미 제출이 완료된 설문입니다.</h2>
 
-            <p>
-              이 설문은 이미 제출이 완료되어 다시 응답할 수 없습니다.
-            </p>
+    <p>
+      이 설문은 이미 제출이 완료되어 다시 응답할 수 없습니다.
+    </p>
 
-            <div class="submitted-info-box">
-              <p>
-                <strong>응답자 코드:</strong>
-                <span id="alreadySubmittedRespondentKey">-</span>
-              </p>
-              <p>
-                <strong>소속:</strong>
-                <span id="alreadySubmittedOrg">-</span>
-              </p>
-              <p>
-                <strong>제출일시:</strong>
-                <span id="alreadySubmittedAt">-</span>
-              </p>
-            </div>
-              <p class="help-text">
-                응답 수정 또는 재참여가 필요한 경우 설문 운영 담당자에게 문의해 주세요.
-              </p>
-            </div>
-      </section>
+    <div class="submitted-info-box">
+      <p>
+        <strong>응답자 코드:</strong>
+        <span id="alreadySubmittedRespondentKey">-</span>
+      </p>
+      <p>
+        <strong>소속:</strong>
+        <span id="alreadySubmittedOrg">-</span>
+      </p>
+      <p>
+        <strong>제출일시:</strong>
+        <span id="alreadySubmittedAt">-</span>
+      </p>
+    </div>
+
+    <p class="help-text">
+      응답 수정 또는 재참여가 필요한 경우 설문 운영 담당자에게 문의해 주세요.
+    </p>
+  </div>
+</section>
 
       <section id="completeSection" class="hidden">
         <h2>응답이 제출되었습니다.</h2>
@@ -115,6 +116,6 @@
     </main>
   </div>
 
-  <script src="/app.js?v=20260625-01"></script>
+  <script src="/app.js?v=20260625-02"></script>
 </body>
 </html>
