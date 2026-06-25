@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>진단맵 프리세팅 관리자</title>
+  <link rel="stylesheet" href="/admin-preset.css?v=20260626-01" />
+</head>
+
+<body>
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="brand-box">
+        <div class="brand-title">Diagnosis Preset</div>
+        <div class="brand-subtitle">표준 진단맵 v3</div>
+      </div>
+
+      <nav class="step-nav">
+        <button class="step-btn active" data-tab="project">1. 프로젝트</button>
+        <button class="step-btn" data-tab="score">2. 점수 설정</button>
+        <button class="step-btn" data-tab="factor">3. 계층형 A~F</button>
+        <button class="step-btn" data-tab="loa">4. LOA 수준분석</button>
+        <button class="step-btn" data-tab="reports">5. 보고서</button>
+        <button class="step-btn" data-tab="indices">6. 지수형 I</button>
+        <button class="step-btn" data-tab="org">7. 조직 리포팅 R</button>
+        <button class="step-btn" data-tab="items">8. 문항맵</button>
+        <button class="step-btn" data-tab="validate">9. 검증/반영</button>
+      </nav>
+    </aside>
+
+    <main class="admin-main">
+      <header class="admin-header">
+        <div>
+          <h1>진단맵 프리세팅 관리자</h1>
+          <p>고객사별 문항맵, 계층형 요인구조, 지수형 구조, LOA, 조직 리포팅 레벨을 설정합니다.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn ghost" id="btnLoadTemplate">템플릿 불러오기</button>
+          <button class="btn primary" id="btnSaveDraft">임시저장</button>
+        </div>
+      </header>
+
+      <!-- STEP 1 -->
+      <section class="tab-panel active" id="tab-project">
+        <div class="card">
+          <h2>1. 프로젝트 기본정보</h2>
+
+          <div class="grid two">
+            <label>
+              고객사 코드
+              <input id="clientCode" type="text" placeholder="예: lsec" />
+            </label>
+
+            <label>
+              고객사명
+              <input id="clientName" type="text" placeholder="예: LSEC" />
+            </label>
+
+            <label>
+              프로젝트 코드
+              <input id="projectCode" type="text" placeholder="예: lsec_2026_culture" />
+            </label>
+
+            <label>
+              프로젝트명
+              <input id="projectName" type="text" placeholder="예: 2026 LSEC 조직문화 진단" />
+            </label>
+
+            <label>
+              진단명
+              <input id="diagnosisName" type="text" placeholder="예: 조직문화 진단" />
+            </label>
+
+            <label>
+              진단년도
+              <input id="diagnosisYear" type="number" placeholder="2026" />
+            </label>
+          </div>
+
+          <div class="preset-summary">
+            <div>
+              <strong>A~F</strong>
+              <span>계층형 요인구조</span>
+            </div>
+            <div>
+              <strong>I</strong>
+              <span>지수형 구조</span>
+            </div>
+            <div>
+              <strong>L</strong>
+              <span>LOA 수준분석</span>
+            </div>
+            <div>
+              <strong>R</strong>
+              <span>조직 리포팅 레벨</span>
+            </div>
+            <div>
+              <strong>S</strong>
+              <span>점수 산출 방식</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 2 -->
+      <section class="tab-panel" id="tab-score">
+        <div class="card">
+          <h2>2. 점수 산출/표시 방식 S</h2>
+
+          <div class="grid three">
+            <label>
+              원척도 최소값
+              <input id="rawScaleMin" type="number" value="1" />
+            </label>
+
+            <label>
+              원척도 최대값
+              <input id="rawScaleMax" type="number" value="5" />
+            </label>
+
+            <label>
+              기본 척도 수
+              <input id="defaultScalePoints" type="number" value="5" />
+            </label>
+
+            <label>
+              보고서 점수 최소값
+              <input id="displayScoreMin" type="number" value="1" />
+            </label>
+
+            <label>
+              보고서 점수 최대값
+              <input id="displayScoreMax" type="number" value="5" />
+            </label>
+
+            <label>
+              점수 표시 방식
+              <select id="scoreDisplayType">
+                <option value="RAW_5_POINT">5점 평균 그대로</option>
+                <option value="POINT_100">100점 만점 환산</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="grid two">
+            <label>
+              점수 변환 방식
+              <select id="scoreTransformMethod">
+                <option value="NONE">NONE: 원점수 그대로 사용</option>
+                <option value="LINEAR_0_100">LINEAR_0_100: (x - 1) × 25</option>
+              </select>
+            </label>
+
+            <label>
+              소수점 자리수
+              <input id="roundDigits" type="number" value="2" />
+            </label>
+
+            <label>
+              긍정 응답값
+              <input id="positiveRawValues" type="text" value="4,5" />
+            </label>
+
+            <label>
+              부정 응답값
+              <input id="negativeRawValues" type="text" value="1,2" />
+            </label>
+
+            <label>
+              중립 응답값
+              <input id="neutralRawValues" type="text" value="3" />
+            </label>
+          </div>
+
+          <div class="formula-box">
+            <strong>현재 공식 미리보기</strong>
+            <p id="scoreFormulaPreview">5점 평균 그대로 사용: display_value = scored_value</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 3 -->
+      <section class="tab-panel" id="tab-factor">
+        <div class="card">
+          <div class="section-header">
+            <div>
+              <h2>3. 계층형 요인구조 A~F</h2>
+              <p>Nested / cascading 구조입니다. 조합형 지수는 여기 넣지 않고 I 단계에서 설정합니다.</p>
+            </div>
+            <div>
+              <label class="inline-label">
+                사용 계층 수
+                <select id="factorDepthMax">
+                  <option value="3">3단계 A~C</option>
+                  <option value="4" selected>4단계 A~D</option>
+                  <option value="5">5단계 A~E</option>
+                  <option value="6">6단계 A~F</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="grid six">
+            <label>A 명칭<input id="labelA" type="text" value="요인" /></label>
+            <label>B 명칭<input id="labelB" type="text" value="하위요인" /></label>
+            <label>C 명칭<input id="labelC" type="text" value="세부요인" /></label>
+            <label>D 명칭<input id="labelD" type="text" value="문항요인" /></label>
+            <label>E 명칭<input id="labelE" type="text" value="5단계" /></label>
+            <label>F 명칭<input id="labelF" type="text" value="6단계" /></label>
+          </div>
+
+          <div class="factor-workspace">
+            <div class="tree-panel">
+              <div class="tree-toolbar">
+                <button class="btn small" id="btnAddRootFactor">+ A단계 추가</button>
+                <button class="btn small ghost" id="btnExpandAll">전체 펼침</button>
+              </div>
+              <div id="factorTree" class="factor-tree"></div>
+            </div>
+
+            <div class="edit-panel">
+              <h3>요인 편집</h3>
+              <p class="muted">트리에서 요인을 선택하거나 새 요인을 추가하세요.</p>
+
+              <input type="hidden" id="editingFactorId" />
+
+              <label>
+                단계
+                <input id="editingFactorLevel" type="text" readonly />
+              </label>
+
+              <label>
+                코드
+                <input id="editingFactorCode" type="text" readonly />
+              </label>
+
+              <label>
+                명칭
+                <input id="editingFactorName" type="text" placeholder="예: 조직역량" />
+              </label>
+
+              <label>
+                보고서 출력명
+                <input id="editingFactorReportName" type="text" placeholder="예: 조직 역량" />
+              </label>
+
+              <label>
+                정렬순서
+                <input id="editingFactorOrder" type="number" />
+              </label>
+
+              <div class="path-preview">
+                <strong>경로 미리보기</strong>
+                <div id="editingPathCode">-</div>
+                <div id="editingPathName">-</div>
+              </div>
+
+              <div class="button-row">
+                <button class="btn primary" id="btnSaveFactor">요인 저장</button>
+                <button class="btn danger ghost" id="btnDeleteFactor">삭제</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 4 -->
+      <section class="tab-panel" id="tab-loa">
+        <div class="card">
+          <h2>4. LOA 수준분석 L</h2>
+          <p>조직심리학의 Levels of Analysis 기준입니다. 문항이 측정하는 수준을 의미합니다.</p>
+
+          <table class="data-table" id="loaTable">
+            <thead>
+              <tr>
+                <th>LOA 코드</th>
+                <th>명칭</th>
+                <th>분석용 key</th>
+                <th>정렬순서</th>
+                <th>설명</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+
+          <div class="info-box">
+            <strong>확정 코드</strong>
+            <p>L1_O = 조직 수준, L2_T = 팀·집단 수준, L3_I = 개인 수준</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 5 -->
+      <section class="tab-panel" id="tab-reports">
+        <div class="card">
+          <div class="section-header">
+            <h2>5. 보고서 정의</h2>
+            <button class="btn small" id="btnAddReport">+ 보고서 추가</button>
+          </div>
+
+          <table class="data-table" id="reportsTable">
+            <thead>
+              <tr>
+                <th>보고서 코드</th>
+                <th>보고서명</th>
+                <th>역할</th>
+                <th>정렬순서</th>
+                <th>설명</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- STEP 6 -->
+      <section class="tab-panel" id="tab-indices">
+        <div class="card">
+          <div class="section-header">
+            <div>
+              <h2>6. 지수형 구조 I</h2>
+              <p>계층형 구조와 별도로, 문항을 재조합하여 산출하는 지수입니다.</p>
+            </div>
+            <button class="btn small" id="btnAddIndex">+ 지수 추가</button>
+          </div>
+
+          <table class="data-table" id="indicesTable">
+            <thead>
+              <tr>
+                <th>보고서</th>
+                <th>지수 코드</th>
+                <th>지수명</th>
+                <th>지수 유형</th>
+                <th>계산 방식</th>
+                <th>정렬순서</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+
+          <div class="info-box">
+            <strong>다음 단계</strong>
+            <p>지수별 포함 문항은 08_index_items 시트 또는 문항맵 업로드 후 연결합니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 7 -->
+      <section class="tab-panel" id="tab-org">
+        <div class="card">
+          <div class="section-header">
+            <div>
+              <h2>7. 조직 리포팅 레벨 R</h2>
+              <p>결과를 어느 조직 단위로 집계하고 보여줄지 정의합니다.</p>
+            </div>
+            <button class="btn small" id="btnAddOrgLevel">+ 리포팅 레벨 추가</button>
+          </div>
+
+          <table class="data-table" id="orgLevelsTable">
+            <thead>
+              <tr>
+                <th>레벨 코드</th>
+                <th>레벨명</th>
+                <th>분석용 key</th>
+                <th>정렬순서</th>
+                <th>원본 컬럼명</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- STEP 8 -->
+      <section class="tab-panel" id="tab-items">
+        <div class="card">
+          <h2>8. 문항맵 업로드/매핑</h2>
+
+          <div class="upload-box">
+            <input id="itemMapFile" type="file" accept=".xlsx,.csv" />
+            <button class="btn primary" id="btnParseItemMap">문항맵 파싱</button>
+          </div>
+
+          <div class="info-box">
+            <strong>지원 예정</strong>
+            <p>CSV/XLSX 업로드 → 컬럼 자동 매핑 → 표준 04_item_map 구조로 변환 → 검증 → DB 반영</p>
+          </div>
+
+          <table class="data-table" id="itemPreviewTable">
+            <thead>
+              <tr>
+                <th>문항번호</th>
+                <th>변수명</th>
+                <th>요인경로</th>
+                <th>LOA</th>
+                <th>역문항</th>
+                <th>실제문항</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6" class="empty">아직 업로드된 문항맵이 없습니다.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- STEP 9 -->
+      <section class="tab-panel" id="tab-validate">
+        <div class="card">
+          <div class="section-header">
+            <h2>9. 검증 및 DB 반영</h2>
+            <button class="btn primary" id="btnRunValidation">검증 실행</button>
+          </div>
+
+          <div id="validationSummary" class="validation-grid"></div>
+
+          <div class="button-row">
+            <button class="btn ghost" id="btnDownloadJson">JSON 내보내기</button>
+            <button class="btn primary" id="btnApplyToDb">DB 반영</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/admin-preset.js?v=20260626-01"></script>
+</body>
+</html>
