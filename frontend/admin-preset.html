@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>진단맵 프리세팅 관리자</title>
-  <link rel="stylesheet" href="/admin-preset.css?v=20260626-03" />
+  <link rel="stylesheet" href="/admin-preset.css?v=20260626-04" />
 </head>
 <body>
   <div class="admin-layout">
@@ -42,6 +42,21 @@
 
       <section class="tab-panel active" id="tab-project">
         <div class="card">
+          <div class="template-import-box">
+            <div>
+              <h2>통합 진단맵 템플릿</h2>
+              <p>표준 엑셀 템플릿을 다운로드하여 작성한 뒤 업로드하면, 각 프리세팅 탭에 자동 반영됩니다.</p>
+            </div>
+            <div class="template-actions">
+              <a class="btn primary" href="/standard_diagnosis_map_template_v3_integrated.xlsx" download>템플릿 엑셀파일 다운로드</a>
+              <label class="file-inline">템플릿 엑셀파일 등록
+                <input id="templateExcelFile" type="file" accept=".xlsx,.xls" />
+              </label>
+              <button class="btn" id="btnLoadTemplateExcel">엑셀 불러오기</button>
+            </div>
+            <div id="templateImportSummary" class="import-summary">아직 불러온 템플릿이 없습니다.</div>
+          </div>
+
           <h2>1. 프로젝트 기본정보</h2>
           <div class="grid two">
             <label>고객사 코드<input id="clientCode" type="text" placeholder="예: lsec" /></label>
@@ -91,11 +106,40 @@
                 <label>버튼 글자색<input id="buttonTextColor" type="color" value="#FFFFFF" /></label>
                 <label>진행률바 색상<input id="progressBarColor" type="color" value="#1F4E79" /></label>
               </div>
-              <h3>안내/완료 문구</h3>
+              <h3>응답자/고객사 노출 문구</h3>
+              <label>브라우저 제목<input id="browserTitle" type="text" value="조직문화 진단" /></label>
+              <label>설문 제목<input id="surveyTitle" type="text" value="2026 조직문화 진단" /></label>
+              <label>상단 제목<input id="headerTitle" type="text" value="2026 조직문화 진단" /></label>
+              <label>상단 보조문구<input id="headerSubtitle" type="text" value="더 나은 조직문화를 위한 구성원 의견 조사" /></label>
               <label>인트로 제목<input id="introTitle" type="text" value="조직문화 진단에 참여해 주셔서 감사합니다." /></label>
-              <label>익명성 안내<textarea id="privacyNoticeText" rows="3">응답 결과는 통계적으로만 분석되며, 개인을 식별할 수 있는 형태로 보고되지 않습니다.</textarea></label>
+              <label>인트로 안내문<textarea id="introDescription" rows="3">본 조사는 조직문화 개선을 위한 목적으로 실시됩니다.</textarea></label>
+              <label>익명성/개인정보 안내<textarea id="privacyNoticeText" rows="3">응답 결과는 통계적으로만 분석되며, 개인을 식별할 수 있는 형태로 보고되지 않습니다.</textarea></label>
+              <label>예상 소요시간 안내<input id="estimatedTimeText" type="text" value="예상 소요시간은 약 10분입니다." /></label>
+              <label>임시저장 안내<input id="draftSaveNotice" type="text" value="임시저장 후 동일 링크로 이어서 응답할 수 있습니다." /></label>
+
+              <h3>버튼/오류/재진입 문구</h3>
+              <div class="grid two compact">
+                <label>이전 버튼<input id="prevButtonText" type="text" value="이전" /></label>
+                <label>다음 버튼<input id="nextButtonText" type="text" value="다음" /></label>
+                <label>임시저장 버튼<input id="draftButtonText" type="text" value="임시저장 후 종료" /></label>
+                <label>제출 버튼<input id="submitButtonText" type="text" value="응답 제출" /></label>
+              </div>
+              <label>제출 확인 문구<input id="submitConfirmText" type="text" value="응답을 제출하시겠습니까?" /></label>
+              <label>필수문항 오류 문구<input id="requiredErrorText" type="text" value="필수 문항에 응답해 주세요." /></label>
+              <label>페이지 미완료 오류 문구<input id="pageIncompleteErrorText" type="text" value="현재 페이지의 모든 문항에 응답해 주세요." /></label>
+              <label>재진입 제목<input id="resumeTitle" type="text" value="이어서 응답하시겠습니까?" /></label>
+              <label>재진입 안내<textarea id="resumeMessage" rows="3">이전에 저장된 응답이 있습니다. 이어서 응답하거나 처음부터 다시 응답할 수 있습니다.</textarea></label>
+              <div class="grid two compact">
+                <label>이어하기 버튼<input id="resumeContinueButtonText" type="text" value="이어서 응답" /></label>
+                <label>처음부터 버튼<input id="resumeRestartButtonText" type="text" value="처음부터 다시 응답" /></label>
+              </div>
+
+              <h3>완료/이미 제출 화면</h3>
+              <label>이미 제출 제목<input id="alreadySubmittedTitle" type="text" value="이미 제출이 완료되었습니다." /></label>
+              <label>이미 제출 안내<textarea id="alreadySubmittedMessage" rows="3">이미 제출한 응답은 다시 수정할 수 없습니다.</textarea></label>
               <label>완료 제목<input id="completeTitle" type="text" value="제출이 완료되었습니다." /></label>
               <label>완료 메시지<textarea id="completeMessage" rows="3">소중한 의견을 주셔서 감사합니다. 응답 결과는 조직문화 개선을 위한 통계 분석에만 활용됩니다.</textarea></label>
+              <label>문의처 문구<input id="supportContactText" type="text" value="문의: HR 담당부서" /></label>
             </div>
             <div class="panel-box preview-box">
               <h3>설문 화면 미리보기</h3>
@@ -183,6 +227,7 @@
       <section class="tab-panel" id="tab-validate"><div class="card"><div class="section-header"><h2>11. 검증 및 DB 반영</h2><button class="btn primary" id="btnRunValidation">검증 실행</button></div><div id="validationSummary" class="validation-grid"></div><div class="button-row"><button class="btn ghost" id="btnDownloadJson">JSON 내보내기</button><button class="btn primary" id="btnApplyToDb">DB 반영</button></div></div></section>
     </main>
   </div>
-<script src="/admin-preset.js?v=20260626-03"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="/admin-preset.js?v=20260626-04"></script>
 </body>
 </html>

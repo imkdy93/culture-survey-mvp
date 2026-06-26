@@ -70,6 +70,7 @@ const state = {
 };
 document.addEventListener("DOMContentLoaded", () => {
   bindTabs();
+  bindTemplateActions();
   bindBrandingActions();
   bindScaleActions();
   bindScorePreview();
@@ -93,6 +94,251 @@ function bindTabs() {
     }),
   );
 }
+
+function bindTemplateActions() {
+  document.getElementById("btnLoadTemplateExcel")?.addEventListener("click", () => {
+    const file = document.getElementById("templateExcelFile")?.files?.[0];
+    if (!file) {
+      alert("먼저 통합 진단맵 엑셀 템플릿 파일을 선택해 주세요.");
+      return;
+    }
+    loadTemplateWorkbook(file);
+  });
+}
+
+function loadTemplateWorkbook(file) {
+  if (!window.XLSX) {
+    alert("엑셀 파서가 로드되지 않았습니다. 네트워크 상태 또는 xlsx 스크립트 로드를 확인해 주세요.");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const data = new Uint8Array(event.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const getRows = (sheetName) => {
+        const sheet = workbook.Sheets[sheetName];
+        if (!sheet) return [];
+        return XLSX.utils.sheet_to_json(sheet, { defval: "" });
+      };
+
+      const counts = applyWorkbookRows(getRows);
+      renderAll();
+      updateTemplateImportSummary(file.name, counts, []);
+    } catch (error) {
+      console.error(error);
+      updateTemplateImportSummary(file.name, {}, [error.message || String(error)]);
+      alert("엑셀 템플릿을 불러오는 중 오류가 발생했습니다.");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function applyWorkbookRows(getRows) {
+  const counts = {};
+
+  const projectRows = getRows("01_project_preset");
+  counts.project_preset = projectRows.length;
+  if (projectRows[0]) {
+    setVal("clientCode", projectRows[0].client_code);
+    setVal("clientName", projectRows[0].client_name);
+    setVal("projectCode", projectRows[0].project_code);
+    setVal("projectName", projectRows[0].project_name);
+    setVal("diagnosisName", projectRows[0].diagnosis_name);
+    setVal("diagnosisYear", projectRows[0].diagnosis_year);
+  }
+
+  const brandingRows = getRows("02_branding_settings");
+  counts.branding_settings = brandingRows.length;
+  if (brandingRows[0]) applyBrandingRow(brandingRows[0]);
+
+  const scaleRows = getRows("03_scale_preset");
+  counts.scale_preset = scaleRows.length;
+  if (scaleRows[0]) {
+    setVal("scalePointCount", scaleRows[0].scale_point_count || scaleRows[0].default_scale_points || 5);
+    setVal("scaleDisplayMode", scaleRows[0].display_mode || "PAGE_TOP_ONCE");
+    setVal("questionScaleMode", scaleRows[0].question_scale_mode || "NUMBERS_ONLY");
+    setVal("mobileDisplayMode", scaleRows[0].mobile_display_mode || "NUMBERS_ONLY");
+  }
+
+  const scaleLabelRows = getRows("04_scale_labels");
+  counts.scale_labels = scaleLabelRows.length;
+  if (scaleLabelRows.length) {
+    state.scaleLabels = scaleLabelRows
+      .filter((r) => r.scale_value !== "")
+      .map((r, i) => ({
+        scale_value: Number(r.scale_value),
+        scale_label: String(r.scale_label || ""),
+        display_order: Number(r.display_order || r.scale_value || i + 1),
+      }))
+      .sort((a, b) => a.scale_value - b.scale_value);
+  } else {
+    initScaleLabels();
+  }
+
+  const scoreRows = getRows("05_score_settings");
+  counts.score_settings = scoreRows.length;
+  if (scoreRows[0]) {
+    setVal("rawScaleMin", scoreRows[0].raw_scale_min || 1);
+    setVal("rawScaleMax", scoreRows[0].raw_scale_max || 5);
+    setVal("displayScoreMin", scoreRows[0].display_score_min || 1);
+    setVal("displayScoreMax", scoreRows[0].display_score_max || 5);
+    setVal("scoreDisplayType", scoreRows[0].score_display_type || "RAW_5_POINT");
+    setVal("scoreTransformMethod", scoreRows[0].score_transform_method || "NONE");
+    setVal("positiveRawValues", scoreRows[0].positive_raw_values || "4,5");
+    setVal("negativeRawValues", scoreRows[0].negative_raw_values || "1,2");
+    setVal("neutralRawValues", scoreRows[0].neutral_raw_values || "3");
+  }
+
+  const factorRows = getRows("06_factor_nodes_A_to_F");
+  counts.factor_nodes = factorRows.length;
+  if (factorRows.length) applyFactorRows(factorRows);
+
+  const loaRows = getRows("08_loa_levels");
+  counts.loa_levels = loaRows.length;
+  if (loaRows.length) state.loaLevels = loaRows.map((r, i) => ({
+    loa_code: String(r.loa_code || ""),
+    loa_name: String(r.loa_name || ""),
+    loa_key: String(r.loa_key || ""),
+    loa_order: Number(r.loa_order || i + 1),
+    description: String(r.description || ""),
+  }));
+
+  const reportRows = getRows("09_reports");
+  counts.reports = reportRows.length;
+  if (reportRows.length) state.reports = reportRows.map((r, i) => ({
+    report_code: String(r.report_code || `REPORT_${i + 1}`),
+    report_name: String(r.report_name || ""),
+    report_role: String(r.report_role || "SUB"),
+    report_order: Number(r.report_order || i + 1),
+    description: String(r.description || ""),
+  }));
+
+  const indexRows = getRows("10_indices");
+  counts.indices = indexRows.length;
+  if (indexRows.length) state.indices = indexRows.map((r, i) => ({
+    report_code: String(r.report_code || "OC"),
+    index_code: String(r.index_code || `I${i + 1}`),
+    index_name: String(r.index_name || ""),
+    index_type: String(r.index_type || "DERIVED_INDEX"),
+    calculation_method: String(r.calculation_method || "MEAN_SELECTED_ITEMS"),
+    index_order: Number(r.index_order || i + 1),
+  }));
+
+  const orgRows = getRows("12_org_reporting_levels");
+  counts.org_reporting_levels = orgRows.length;
+  if (orgRows.length) state.orgLevels = orgRows.map((r, i) => ({
+    org_level_code: String(r.org_level_code || `R${i + 1}`),
+    org_level_name: String(r.org_level_name || ""),
+    org_level_key: String(r.org_level_key || ""),
+    org_level_order: Number(r.org_level_order || i + 1),
+    source_column_name: String(r.source_column_name || ""),
+  }));
+
+  const itemRows = getRows("07_item_map");
+  counts.item_map = itemRows.length;
+
+  updateScoreFormulaPreview();
+  return counts;
+}
+
+function applyBrandingRow(row) {
+  const map = {
+    logo_file_url: "brandingLogoUrl",
+    logo_alt_text: "brandingLogoAlt",
+    logo_position: "brandingLogoPosition",
+    logo_size: "brandingLogoSize",
+    primary_color: "primaryColor",
+    page_background_color: "pageBackgroundColor",
+    card_background_color: "cardBackgroundColor",
+    question_text_color: "questionTextColor",
+    description_text_color: "descriptionTextColor",
+    button_background_color: "buttonBackgroundColor",
+    button_text_color: "buttonTextColor",
+    progress_bar_color: "progressBarColor",
+    browser_title: "browserTitle",
+    survey_title: "surveyTitle",
+    header_title: "headerTitle",
+    header_subtitle: "headerSubtitle",
+    intro_title: "introTitle",
+    intro_description: "introDescription",
+    privacy_notice_text: "privacyNoticeText",
+    estimated_time_text: "estimatedTimeText",
+    draft_save_notice: "draftSaveNotice",
+    prev_button_text: "prevButtonText",
+    next_button_text: "nextButtonText",
+    draft_button_text: "draftButtonText",
+    submit_button_text: "submitButtonText",
+    submit_confirm_text: "submitConfirmText",
+    required_error_text: "requiredErrorText",
+    page_incomplete_error_text: "pageIncompleteErrorText",
+    resume_title: "resumeTitle",
+    resume_message: "resumeMessage",
+    resume_continue_button_text: "resumeContinueButtonText",
+    resume_restart_button_text: "resumeRestartButtonText",
+    already_submitted_title: "alreadySubmittedTitle",
+    already_submitted_message: "alreadySubmittedMessage",
+    complete_title: "completeTitle",
+    complete_message: "completeMessage",
+    support_contact_text: "supportContactText",
+  };
+  Object.entries(map).forEach(([col, id]) => {
+    if (row[col] !== undefined && row[col] !== "") setVal(id, row[col]);
+  });
+}
+
+function applyFactorRows(rows) {
+  const levelOrder = { A: 1, B: 2, C: 3, D: 4, E: 5, F: 6 };
+  const sorted = [...rows].sort((a, b) => (levelOrder[a.factor_level] || 99) - (levelOrder[b.factor_level] || 99));
+  const byCode = new Map();
+  state.factors = [];
+
+  sorted.forEach((r, idx) => {
+    if (!r.factor_code || !r.factor_level) return;
+    const parent = r.parent_factor_code ? byCode.get(String(r.parent_factor_code)) : null;
+    const factor = {
+      id: crypto.randomUUID(),
+      factor_level: String(r.factor_level),
+      factor_code: String(r.factor_code),
+      factor_name: String(r.factor_name || r.factor_code),
+      factor_report_name: String(r.report_name || r.factor_name || r.factor_code),
+      factor_order: Number(r.factor_order || idx + 1),
+      parent_id: parent ? parent.id : null,
+      path_code: "",
+      path_name: "",
+      path_key: "",
+      is_active: r.is_active === "" ? true : Boolean(r.is_active),
+    };
+    state.factors.push(factor);
+    byCode.set(factor.factor_code, factor);
+  });
+  rebuildFactorPaths();
+}
+
+function updateTemplateImportSummary(fileName, counts, errors) {
+  const box = document.getElementById("templateImportSummary");
+  if (!box) return;
+  if (errors?.length) {
+    PLACEHOLDER
+    return;
+  }
+  const lines = [
+    `불러오기 완료: ${fileName}`,
+    `프로젝트 기본정보: ${counts.project_preset || 0}건`,
+    `브랜딩 설정: ${counts.branding_settings || 0}건`,
+    `척도 설정: ${counts.scale_preset || 0}건 / 척도 라벨: ${counts.scale_labels || 0}건`,
+    `점수 설정: ${counts.score_settings || 0}건`,
+    `계층형 요인: ${counts.factor_nodes || 0}건`,
+    `문항맵: ${counts.item_map || 0}건`,
+    `LOA: ${counts.loa_levels || 0}건`,
+    `보고서: ${counts.reports || 0}건 / 지수: ${counts.indices || 0}건`,
+    `조직 리포팅 레벨: ${counts.org_reporting_levels || 0}건`,
+    "각 탭에서 내용을 확인한 뒤 검증/반영을 진행하세요.",
+  ];
+  box.textContent = lines.join("\n");
+}
+
 function bindBrandingActions() {
   [
     "brandingLogoUrl",
@@ -107,10 +353,31 @@ function bindBrandingActions() {
     "buttonBackgroundColor",
     "buttonTextColor",
     "progressBarColor",
+    "browserTitle",
+    "surveyTitle",
+    "headerTitle",
+    "headerSubtitle",
     "introTitle",
+    "introDescription",
     "privacyNoticeText",
+    "estimatedTimeText",
+    "draftSaveNotice",
+    "prevButtonText",
+    "nextButtonText",
+    "draftButtonText",
+    "submitButtonText",
+    "submitConfirmText",
+    "requiredErrorText",
+    "pageIncompleteErrorText",
+    "resumeTitle",
+    "resumeMessage",
+    "resumeContinueButtonText",
+    "resumeRestartButtonText",
+    "alreadySubmittedTitle",
+    "alreadySubmittedMessage",
     "completeTitle",
     "completeMessage",
+    "supportContactText",
     "projectName",
   ].forEach((id) => {
     const el = document.getElementById(id);
@@ -159,10 +426,31 @@ function collectBrandingForm() {
     progress_bar_color: val("progressBarColor", "#1F4E79"),
     question_text_color: val("questionTextColor", "#111827"),
     description_text_color: val("descriptionTextColor", "#6B7280"),
+    browser_title: val("browserTitle"),
+    survey_title: val("surveyTitle"),
+    header_title: val("headerTitle"),
+    header_subtitle: val("headerSubtitle"),
     intro_title: val("introTitle"),
+    intro_description: val("introDescription"),
     privacy_notice_text: val("privacyNoticeText"),
+    estimated_time_text: val("estimatedTimeText"),
+    draft_save_notice: val("draftSaveNotice"),
+    prev_button_text: val("prevButtonText", "이전"),
+    next_button_text: val("nextButtonText", "다음"),
+    draft_button_text: val("draftButtonText", "임시저장 후 종료"),
+    submit_button_text: val("submitButtonText", "응답 제출"),
+    submit_confirm_text: val("submitConfirmText"),
+    required_error_text: val("requiredErrorText"),
+    page_incomplete_error_text: val("pageIncompleteErrorText"),
+    resume_title: val("resumeTitle"),
+    resume_message: val("resumeMessage"),
+    resume_continue_button_text: val("resumeContinueButtonText"),
+    resume_restart_button_text: val("resumeRestartButtonText"),
+    already_submitted_title: val("alreadySubmittedTitle"),
+    already_submitted_message: val("alreadySubmittedMessage"),
     complete_title: val("completeTitle"),
     complete_message: val("completeMessage"),
+    support_contact_text: val("supportContactText"),
   };
 }
 function updateBrandingPreview() {
@@ -188,8 +476,8 @@ function updateBrandingPreview() {
   }
   if (qt) qt.style.color = b.question_text_color;
   if (dt) dt.style.color = b.description_text_color;
-  if (title) title.textContent = val("projectName") || "고객사 조직문화 진단";
-  if (intro) intro.textContent = b.intro_title || "응답 안내";
+  if (title) title.textContent = b.header_title || b.survey_title || val("projectName") || "고객사 조직문화 진단";
+  if (intro) intro.textContent = b.header_subtitle || b.intro_title || "응답 안내";
   if (logo) {
     logo.innerHTML = "";
     if (b.logo_file_url && b.logo_position !== "HIDDEN") {

@@ -623,3 +623,74 @@ textarea:read-only {
     font-size: 16px;
   }
 }
+/* Template import / download block */
+.template-import-box {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 24px;
+}
+
+.template-import-box h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+.template-import-box p {
+  margin: 0 0 14px;
+  color: #475569;
+}
+
+.template-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.file-inline {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.file-inline input {
+  width: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.import-summary {
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1e3a8a;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 760px) {
+  .template-actions {
+    align-items: stretch;
+  }
+
+  .template-actions .btn,
+  .template-actions a,
+  .file-inline {
+    width: 100%;
+    justify-content: center;
+  }
+}
